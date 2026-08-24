@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Belajar Kata — Oxford 3000</title>
+<style>
+  :root{
+    --bg1:#fef6e4;
+    --bg2:#e8f4ff;
+    --ink:#2b2440;
+    --ink-soft:#6b6280;
+    --card:#ffffff;
+    --a1:#ff9f68;
+    --a1-deep:#e8734a;
+    --a2:#5ec2a6;
+    --a2-deep:#2f9e83;
+    --b1:#6c8eef;
+    --b1-deep:#4568d9;
+    --b2:#c084f5;
+    --b2-deep:#9a4fd8;
+    --good:#22c37a;
+    --good-bg:#e2f9ee;
+    --bad:#ef5a5a;
+    --bad-bg:#fdeaea;
+    --shadow: 0 10px 30px rgba(43,36,64,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Poppins','Segoe UI',system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(circle at 10% 10%, #fff7ea 0%, transparent 45%),
+      radial-gradient(circle at 90% 20%, #e8f4ff 0%, transparent 40%),
+      linear-gradient(160deg, #fffaf0 0%, #f2f7ff 100%);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:720px;
+    margin:0 auto;
+    padding:24px 18px 60px;
+  }
+  header.top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:22px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .brand-badge{
+    width:44px;height:44px;border-radius:14px;
+    background:linear-gradient(135deg,#ff9f68,#c084f5);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;
+    box-shadow:var(--shadow);
+    flex-shrink:0;
+  }
+  .brand h1{
+    font-size:19px;
+    margin:0;
+    line-height:1.15;
+    letter-spacing:-0.2px;
+  }
+  .brand p{
+    margin:2px 0 0;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .icon-btn{
+    border:none;
+    background:var(--card);
+    box-shadow:var(--shadow);
+    width:40px;height:40px;
+    border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    font-size:18px;
+    color:var(--ink);
+    transition:transform .15s ease;
+  }
+  .icon-btn:active{transform:scale(0.92);}
+
+  /* ---------- HOME ---------- */
+  .hero{
+    text-align:center;
+    margin:18px 0 28px;
+  }
+  .hero h2{
+    font-size:26px;
+    margin:0 0 6px;
+    letter-spacing:-0.4px;
+  }
+  .hero p{
+    color:var(--ink-soft);
+    font-size:14.5px;
+    margin:0;
+    max-width:460px;
+    margin:0 auto;
+  }
+  .direction-toggle{
+    display:flex;
+    justify-content:center;
+    margin:20px 0 26px;
+  }
+  .seg{
+    display:inline-flex;
+    background:var(--card);
+    border-radius:100px;
+    padding:5px;
+    box-shadow:var(--shadow);
+  }
+  .seg button{
+    border:none;
+    background:transparent;
+    padding:9px 16px;
+    border-radius:100px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-soft);
+    cursor:pointer;
+    font-family:inherit;
+    transition:all .2s ease;
+    white-space:nowrap;
+  }
+  .seg button.active{
+    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    color:#fff;
+    box-shadow:0 4px 12px rgba(108,142,239,0.35);
+  }
+
+  .level-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  .level-card{
+    position:relative;
+    border-radius:22px;
+    padding:20px 18px;
+    color:#fff;
+    cursor:pointer;
+    border:none;
+    text-align:left;
+    font-family:inherit;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    transition:transform .18s ease, box-shadow .18s ease;
+    min-height:132px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+  }
+  .level-card:active{transform:scale(0.97);}
+  .level-card.a1{background:linear-gradient(135deg,var(--a1),var(--a1-deep));}
+  .level-card.a2{background:linear-gradient(135deg,var(--a2),var(--a2-deep));}
+  .level-card.b1{background:linear-gradient(135deg,var(--b1),var(--b1-deep));}
+  .level-card.b2{background:linear-gradient(135deg,var(--b2),var(--b2-deep));}
+  .level-card .tag{
+    font-size:26px;
+    font-weight:800;
+    letter-spacing:-0.5px;
+  }
+  .level-card .name{
+    font-size:12.5px;
+    opacity:0.92;
+    font-weight:600;
+    margin-top:2px;
+  }
+  .level-card .count{
+    font-size:12px;
+    opacity:0.85;
+    margin-top:14px;
+  }
+  .level-card .blob{
+    position:absolute;
+    right:-18px; bottom:-18px;
+    width:80px;height:80px;
+    background:rgba(255,255,255,0.15);
+    border-radius:50%;
+  }
+
+  .progress-note{
+    text-align:center;
+    margin-top:26px;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+
+  /* ---------- QUIZ ---------- */
+  .quiz-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .quiz-header .level-chip{
+    font-weight:700;
+    font-size:13px;
+    padding:6px 12px;
+    border-radius:100px;
+    color:#fff;
+  }
+  .quiz-header .level-chip.a1{background:var(--a1-deep);}
+  .quiz-header .level-chip.a2{background:var(--a2-deep);}
+  .quiz-header .level-chip.b1{background:var(--b1-deep);}
+  .quiz-header .level-chip.b2{background:var(--b2-deep);}
+
+  .progress-bar-outer{
+    background:#e9e5f5;
+    border-radius:100px;
+    height:8px;
+    overflow:hidden;
+    margin-bottom:22px;
+  }
+  .progress-bar-inner{
+    height:100%;
+    background:linear-gradient(90deg,#6c8eef,#c084f5);
+    border-radius:100px;
+    transition:width .3s ease;
+    width:0%;
+  }
+
+  .score-row{
+    display:flex;
+    justify-content:center;
+    gap:18px;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-bottom:14px;
+  }
+  .score-row span b{color:var(--good);}
+  .score-row span.wrong b{color:var(--bad);}
+
+  .question-card{
+    background:var(--card);
+    border-radius:24px;
+    padding:30px 24px;
+    box-shadow:var(--shadow);
+    text-align:center;
+    margin-bottom:18px;
+  }
+  .question-label{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--ink-soft);
+    font-weight:600;
+    margin-bottom:10px;
+  }
+  .question-word-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .question-word{
+    font-size:28px;
+    font-weight:700;
+    letter-spacing:-0.3px;
+    line-height:1.25;
+  }
+  .speak-btn{
+    border:none;
+    background:linear-gradient(135deg,#ffe1c2,#ffd0a6);
+    color:var(--a1-deep);
+    width:42px;height:42px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    box-shadow:0 4px 10px rgba(232,115,74,0.25);
+    transition:transform .15s ease;
+  }
+  .speak-btn:active{transform:scale(0.88);}
+  .speak-btn svg{width:20px;height:20px;}
+  .speak-btn.small{width:32px;height:32px;}
+  .speak-btn.small svg{width:15px;height:15px;}
+
+  .options{
+    display:flex;
+    flex-direction:column;
+    gap:11px;
+  }
+  .option{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--card);
+    border:2px solid #ece7f7;
+    border-radius:16px;
+    padding:14px 16px;
+    text-align:left;
+    cursor:pointer;
+    font-family:inherit;
+    font-size:15px;
+    color:var(--ink);
+    box-shadow:0 2px 8px rgba(43,36,64,0.04);
+    transition:border-color .15s ease, background .15s ease, transform .1s ease;
+  }
+  .option:active{transform:scale(0.985);}
+  .option .letter{
+    width:28px;height:28px;
+    border-radius:9px;
+    background:#f3f0fb;
+    color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;
+    font-size:13px;
+    flex-shrink:0;
+  }
+  .option .opt-text{flex:1;}
+  .option.correct{
+    border-color:var(--good);
+    background:var(--good-bg);
+  }
+  .option.correct .letter{background:var(--good);color:#fff;}
+  .option.wrong{
+    border-color:var(--bad);
+    background:var(--bad-bg);
+  }
+  .option.wrong .letter{background:var(--bad);color:#fff;}
+  .option.disabled{cursor:default;}
+
+  .feedback-banner{
+    text-align:center;
+    font-weight:700;
+    font-size:14.5px;
+    padding:12px;
+    border-radius:14px;
+    margin-top:14px;
+    display:none;
+  }
+  .feedback-banner.show{display:block;}
+  .feedback-banner.good{background:var(--good-bg);color:var(--good);}
+  .feedback-banner.bad{background:var(--bad-bg);color:var(--bad);}
+
+  .next-btn{
+    width:100%;
+    margin-top:16px;
+    padding:15px;
+    border:none;
+    border-radius:16px;
+    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    color:#fff;
+    font-weight:700;
+    font-size:15px;
+    font-family:inherit;
+    cursor:pointer;
+    box-shadow:0 8px 18px rgba(108,142,239,0.3);
+    display:none;
+  }
+  .next-btn.show{display:block;}
+  .next-btn:active{transform:scale(0.98);}
+
+  /* ---------- RESULT ---------- */
+  .result-card{
+    background:var(--card);
+    border-radius:24px;
+    padding:36px 24px;
+    text-align:center;
+    box-shadow:var(--shadow);
+  }
+  .result-card .emoji{font-size:52px;margin-bottom:8px;}
+  .result-card h2{margin:0 0 6px;font-size:22px;}
+  .result-card p{color:var(--ink-soft);font-size:14px;margin:0 0 22px;}
+  .result-stats{
+    display:flex;
+    justify-content:center;
+    gap:26px;
+    margin-bottom:26px;
+  }
+  .result-stats div{text-align:center;}
+  .result-stats .num{font-size:26px;font-weight:800;}
+  .result-stats .lbl{font-size:11.5px;color:var(--ink-soft);}
+  .result-actions{display:flex;flex-direction:column;gap:10px;}
+  .btn-primary{
+    padding:15px;border:none;border-radius:16px;
+    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    color:#fff;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer;
+  }
+  .btn-secondary{
+    padding:15px;border:none;border-radius:16px;
+    background:#f3f0fb;color:var(--ink);font-weight:700;font-size:15px;font-family:inherit;cursor:pointer;
+  }
+
+  .hidden{display:none !important;}
+
+  @media (max-width:380px){
+    .question-word{font-size:23px;}
+    .level-card .tag{font-size:22px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="brand-badge">📚</div>
+      <div>
+        <h1>Belajar Kata</h1>
+        <p>Oxford 3000 Quiz</p>
+      </div>
+    </div>
+    <button class="icon-btn" id="homeBtn" title="Beranda">🏠</button>
+  </header>
+
+  <!-- ============ HOME SCREEN ============ -->
+  <section id="homeScreen">
+    <div class="hero">
+      <h2>Pilih Level Kamu</h2>
+      <p>3.308 kata penting Bahasa Inggris, berdasarkan CEFR level A1 sampai B2.</p>
+    </div>
+
+    <div class="direction-toggle">
+      <div class="seg">
+        <button id="dirIDEN" class="active">🇮🇩 → 🇬🇧</button>
+        <button id="dirENID">🇬🇧 → 🇮🇩</button>
+      </div>
+    </div>
+
+    <div class="level-grid">
+      <button class="level-card a1" data-level="A1">
+        <div class="blob"></div>
+        <div class="tag">A1</div>
+        <div class="name">Pemula</div>
+        <div class="count" data-count="A1">900 kata</div>
+      </button>
+      <button class="level-card a2" data-level="A2">
+        <div class="blob"></div>
+        <div class="tag">A2</div>
+        <div class="name">Dasar Lanjutan</div>
+        <div class="count" data-count="A2">872 kata</div>
+      </button>
+      <button class="level-card b1" data-level="B1">
+        <div class="blob"></div>
+        <div class="tag">B1</div>
+        <div class="name">Menengah</div>
+        <div class="count" data-count="B1">809 kata</div>
+      </button>
+      <button class="level-card b2" data-level="B2">
+        <div class="blob"></div>
+        <div class="tag">B2</div>
+        <div class="name">Menengah Atas</div>
+        <div class="count" data-count="B2">727 kata</div>
+      </button>
+    </div>
+
+    <p class="progress-note">Tiap kuis berisi 15 pertanyaan acak dari level pilihanmu. Pilihan jawaban selalu diacak 🔀</p>
+  </section>
+
+  <!-- ============ QUIZ SCREEN ============ -->
+  <section id="quizScreen" class="hidden">
+    <div class="quiz-header">
+      <span class="level-chip" id="quizLevelChip">A1</span>
+      <div class="score-row" style="margin:0;">
+        <span>Benar <b id="scoreGood">0</b></span>
+        <span class="wrong">Salah <b id="scoreBad">0</b></span>
+      </div>
+      <span id="quizCounter" style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">1/15</span>
+    </div>
+    <div class="progress-bar-outer">
+      <div class="progress-bar-inner" id="progressBar"></div>
+    </div>
+
+    <div class="question-card">
+      <div class="question-label" id="questionLabel">Apa arti kata ini?</div>
+      <div class="question-word-row">
+        <div class="question-word" id="questionWord">word</div>
+        <button class="speak-btn" id="speakMain" title="Dengarkan pengucapan">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06c1.48-.74 2.5-2.26 2.5-4.03zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="options" id="optionsList"></div>
+
+    <div class="feedback-banner" id="feedbackBanner"></div>
+    <button class="next-btn" id="nextBtn">Lanjut →</button>
+  </section>
+
+  <!-- ============ RESULT SCREEN ============ -->
+  <section id="resultScreen" class="hidden">
+    <div class="result-card">
+      <div class="emoji" id="resultEmoji">🎉</div>
+      <h2 id="resultTitle">Kuis Selesai!</h2>
+      <p id="resultSubtitle">Kerja bagus, terus semangat belajar!</p>
+      <div class="result-stats">
+        <div><div class="num" style="color:var(--good)" id="resultGood">0</div><div class="lbl">BENAR</div></div>
+        <div><div class="num" style="color:var(--bad)" id="resultBad">0</div><div class="lbl">SALAH</div></div>
+        <div><div class="num" id="resultPct">0%</div><div class="lbl">SKOR</div></div>
+      </div>
+      <div class="result-actions">
+        <button class="btn-primary" id="retryBtn">🔁 Ulangi Level Ini</button>
+        <button class="btn-secondary" id="backHomeBtn">🏠 Pilih Level Lain</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="words_data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
