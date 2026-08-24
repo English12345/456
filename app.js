@@ -2,9 +2,16 @@
 // Data kata sudah tersedia lewat WORD_DATA (dari words_data.js)
 // Direction: "id-en" artinya soal Bahasa Indonesia -> jawaban Bahasa Inggris
 //            "en-id" artinya soal Bahasa Inggris -> jawaban Bahasa Indonesia
+//
+// Progres disimpan di localStorage per pasangan kata (level + en), lepas dari arah soal:
+//   status "mastered"  -> kata sudah dikuasai, tidak muncul lagi di kuis utama
+//   status "remedial"  -> kata pernah dijawab salah, masuk kartu Latihan Ulang
+//                         sampai berhasil dijawab benar 7x BERTURUT-TURUT (streak).
+//                         Sekali salah lagi, streak balik ke 0.
 
-const QUIZ_LENGTH = 15;
 const NUM_OPTIONS = 5;
+const MASTERY_STREAK = 7;
+const STORAGE_KEY = 'belajarKata_progress_v1';
 
 let state = {
   direction: 'id-en',
@@ -17,6 +24,93 @@ let state = {
   currentOptions: [],
   currentCorrectIdx: -1
 };
+
+let remedialState = {
+  pool: [],         // [{level, word, streak}]
+  index: 0,
+  total: 0,         // jumlah kartu unik di awal sesi (untuk progress bar)
+  revealed: false
+};
+
+// ---------- progress storage ----------
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){
+    console.warn('Gagal membaca progres, mulai dari kosong.', e);
+    return {};
+  }
+}
+
+function saveProgress(progress){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  }catch(e){
+    console.warn('Gagal menyimpan progres.', e);
+  }
+}
+
+function ensureLevel(progress, level){
+  if(!progress[level]) progress[level] = {};
+  return progress[level];
+}
+
+function markMastered(level, en){
+  const p = loadProgress();
+  ensureLevel(p, level)[en] = { status: 'mastered' };
+  saveProgress(p);
+}
+
+function markRemedial(level, en, streak){
+  const p = loadProgress();
+  ensureLevel(p, level)[en] = { status: 'remedial', streak: streak || 0 };
+  saveProgress(p);
+}
+
+function getWordStatus(level, en){
+  const p = loadProgress();
+  return (p[level] && p[level][en]) || null;
+}
+
+// jumlah kata yang sudah "tuntas" (mastered) di sebuah level
+function countMastered(level){
+  const p = loadProgress();
+  const lv = p[level] || {};
+  return Object.values(lv).filter(v => v.status === 'mastered').length;
+}
+
+function countRemedial(level){
+  const p = loadProgress();
+  const lv = p[level] || {};
+  return Object.values(lv).filter(v => v.status === 'remedial').length;
+}
+
+function countRemedialAll(){
+  return Object.keys(WORD_DATA).reduce((sum, lv) => sum + countRemedial(lv), 0);
+}
+
+// kata yang belum pernah dijawab benar & belum masuk remedial -> pool kuis utama
+function buildMainPool(level){
+  const p = loadProgress();
+  const lv = p[level] || {};
+  return WORD_DATA[level].filter(w => !lv[w.en]);
+}
+
+function buildRemedialPool(){
+  const p = loadProgress();
+  const list = [];
+  Object.keys(WORD_DATA).forEach(level => {
+    const lv = p[level] || {};
+    WORD_DATA[level].forEach(w => {
+      const st = lv[w.en];
+      if(st && st.status === 'remedial'){
+        list.push({ level, word: w, streak: st.streak || 0 });
+      }
+    });
+  });
+  return list;
+}
 
 // ---------- helpers ----------
 function shuffle(arr){
@@ -52,10 +146,25 @@ function speak(text, lang){
   window.speechSynthesis.speak(utter);
 }
 
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- viewport height fix (mobile address bar) ----------
+function setVh(){
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+}
+setVh();
+window.addEventListener('resize', setVh);
+window.addEventListener('orientationchange', setVh);
+
 // ---------- screens ----------
 const screens = {
   home: document.getElementById('homeScreen'),
   quiz: document.getElementById('quizScreen'),
+  remedial: document.getElementById('remedialScreen'),
   result: document.getElementById('resultScreen')
 };
 
@@ -63,6 +172,7 @@ function showScreen(name){
   Object.entries(screens).forEach(([key, el]) => {
     el.classList.toggle('hidden', key !== name);
   });
+  if(name === 'home') refreshHomeUI();
 }
 
 // ---------- home screen ----------
@@ -82,8 +192,25 @@ dirENID.addEventListener('click', () => {
 
 document.querySelectorAll('.level-card').forEach(card => {
   card.addEventListener('click', () => {
-    startQuiz(card.dataset.level);
+    const level = card.dataset.level;
+    const pool = buildMainPool(level);
+    if(pool.length === 0){
+      // semua kata di level ini sudah tuntas (mastered) — arahkan ke remedial kalau ada, atau kasih tahu.
+      const rem = countRemedial(level);
+      if(rem > 0){
+        startRemedial();
+      }else{
+        alert('Level ' + level + ' sudah kamu kuasai semua! 🏆');
+      }
+      return;
+    }
+    startQuiz(level);
   });
+});
+
+document.getElementById('remedialBtn').addEventListener('click', () => {
+  if(countRemedialAll() === 0) return;
+  startRemedial();
 });
 
 document.getElementById('homeBtn').addEventListener('click', () => {
@@ -96,14 +223,57 @@ document.getElementById('backHomeBtn').addEventListener('click', () => {
 });
 
 document.getElementById('retryBtn').addEventListener('click', () => {
-  startQuiz(state.level);
+  // "Lanjut Belajar": kembali ke level yang sama kalau masih ada sisa, kalau tidak ke home
+  if(state.level && buildMainPool(state.level).length > 0){
+    startQuiz(state.level);
+  }else{
+    showScreen('home');
+  }
 });
 
-// ---------- quiz flow ----------
+function refreshHomeUI(){
+  let totalMastered = 0, totalWords = 0;
+
+  Object.keys(WORD_DATA).forEach(level => {
+    const total = WORD_DATA[level].length;
+    const mastered = countMastered(level);
+    const remedial = countRemedial(level);
+    totalMastered += mastered;
+    totalWords += total;
+
+    const countEl = document.querySelector(`[data-count="${level}"]`);
+    if(countEl) countEl.textContent = `${mastered}/${total} kata`;
+
+    const subEl = document.querySelector(`[data-remedial="${level}"]`);
+    if(subEl){
+      if(remedial > 0){
+        subEl.textContent = `🔁 ${remedial} perlu diulang`;
+        subEl.classList.remove('hidden');
+      }else{
+        subEl.classList.add('hidden');
+      }
+    }
+
+    const doneEl = document.querySelector(`[data-done="${level}"]`);
+    if(doneEl){
+      doneEl.classList.toggle('hidden', !(mastered === total && remedial === 0));
+    }
+  });
+
+  const subtitle = document.getElementById('brandSubtitle');
+  subtitle.textContent = `${totalMastered.toLocaleString('id-ID')}/${totalWords.toLocaleString('id-ID')} kata dikuasai`;
+
+  const remAllCount = countRemedialAll();
+  const remBtn = document.getElementById('remedialBtn');
+  const remBadge = document.getElementById('remedialBadge');
+  remBadge.textContent = `${remAllCount} kata`;
+  remBtn.classList.toggle('empty', remAllCount === 0);
+}
+
+// ---------- quiz flow (kuis utama, pilihan ganda) ----------
 function startQuiz(level){
   state.level = level;
-  const all = shuffle(WORD_DATA[level]);
-  state.pool = all.slice(0, Math.min(QUIZ_LENGTH, all.length));
+  state.pool = shuffle(buildMainPool(level));
   state.index = 0;
   state.good = 0;
   state.bad = 0;
@@ -138,12 +308,10 @@ function renderQuestion(){
     : 'Apa artinya dalam Bahasa Indonesia?';
   document.getElementById('questionWord').textContent = questionText;
 
-  // speaker button: always speaks the English side of the word pair
   const speakBtn = document.getElementById('speakMain');
-  speakBtn.style.display = isIdToEn ? 'none' : 'flex'; // for en->id, question itself is English, show speaker
+  speakBtn.style.display = isIdToEn ? 'none' : 'flex';
   speakBtn.onclick = () => speak(word.en, 'en-US');
 
-  // build options
   const distractors = pickDistractors(state.level, word, NUM_OPTIONS - 1);
   const optionTexts = shuffle([correctAnswer, ...distractors]);
   state.currentCorrectIdx = optionTexts.indexOf(correctAnswer);
@@ -160,7 +328,6 @@ function renderQuestion(){
       <span class="letter">${letters[i]}</span>
       <span class="opt-text">${escapeHtml(text)}</span>
     `;
-    // if id->en, options are English words -> add small speaker per option
     if(isIdToEn){
       const sp = document.createElement('span');
       sp.className = 'speak-btn small';
@@ -187,6 +354,7 @@ function selectOption(i){
   if(state.answered) return;
   state.answered = true;
 
+  const word = state.pool[state.index];
   const options = document.querySelectorAll('.option');
   const correct = i === state.currentCorrectIdx;
 
@@ -199,12 +367,13 @@ function selectOption(i){
   const banner = document.getElementById('feedbackBanner');
   if(correct){
     state.good++;
+    markMastered(state.level, word.en);
     banner.className = 'feedback-banner show good';
     banner.textContent = '✅ Benar! Mantap!';
   }else{
     state.bad++;
+    markRemedial(state.level, word.en, 0);
     banner.className = 'feedback-banner show bad';
-    const word = state.pool[state.index];
     const correctText = state.direction === 'id-en' ? word.en : word.id;
     banner.textContent = `❌ Kurang tepat. Jawaban benar: ${correctText}`;
   }
@@ -227,6 +396,7 @@ function finishQuiz(){
   const total = state.good + state.bad;
   const pct = total ? Math.round((state.good / total) * 100) : 0;
 
+  document.getElementById('resultStats').classList.remove('hidden');
   document.getElementById('resultGood').textContent = state.good;
   document.getElementById('resultBad').textContent = state.bad;
   document.getElementById('resultPct').textContent = pct + '%';
@@ -234,8 +404,12 @@ function finishQuiz(){
   let emoji = '🎉', title = 'Kuis Selesai!', subtitle = 'Kerja bagus, terus semangat belajar!';
   if(pct >= 90){ emoji='🏆'; title='Luar Biasa!'; subtitle='Kosakatamu makin kuat, pertahankan!'; }
   else if(pct >= 70){ emoji='🎉'; title='Kerja Bagus!'; subtitle='Sedikit lagi menuju sempurna.'; }
-  else if(pct >= 50){ emoji='💪'; title='Terus Berlatih!'; subtitle='Ulangi lagi supaya makin hafal.'; }
-  else{ emoji='🌱'; title='Jangan Menyerah!'; subtitle='Ulangi levelnya, kamu pasti bisa!'; }
+  else if(pct >= 50){ emoji='💪'; title='Terus Berlatih!'; subtitle='Kata yang salah sudah masuk Latihan Ulang.'; }
+  else{ emoji='🌱'; title='Jangan Menyerah!'; subtitle='Kata yang salah sudah masuk Latihan Ulang.'; }
+
+  if(state.bad > 0){
+    subtitle += ` Ada ${state.bad} kata baru di Latihan Ulang.`;
+  }
 
   document.getElementById('resultEmoji').textContent = emoji;
   document.getElementById('resultTitle').textContent = title;
@@ -244,16 +418,136 @@ function finishQuiz(){
   showScreen('result');
 }
 
-function escapeHtml(str){
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+// ---------- remedial flow (flashcard) ----------
+function startRemedial(){
+  remedialState.pool = shuffle(buildRemedialPool());
+  remedialState.total = remedialState.pool.length;
+  remedialState.index = 0;
+  remedialState.revealed = false;
+
+  if(remedialState.pool.length === 0){
+    showScreen('home');
+    return;
+  }
+
+  showScreen('remedial');
+  renderFlashcard();
 }
 
-// ---------- init: fill actual word counts ----------
-(function initCounts(){
-  Object.keys(WORD_DATA).forEach(level => {
-    const el = document.querySelector(`[data-count="${level}"]`);
-    if(el) el.textContent = `${WORD_DATA[level].length} kata`;
-  });
-})();
+function updateRemedialProgress(){
+  document.getElementById('remedialCounter').textContent =
+    `${remedialState.index + 1}/${remedialState.pool.length}`;
+  const pct = (remedialState.index / remedialState.pool.length) * 100;
+  document.getElementById('remedialProgressBar').style.width = pct + '%';
+}
+
+function renderStreakDots(streak){
+  const wrap = document.getElementById('streakDots');
+  wrap.innerHTML = '';
+  for(let i = 0; i < MASTERY_STREAK; i++){
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i < streak ? ' filled' : '');
+    wrap.appendChild(dot);
+  }
+}
+
+function renderFlashcard(){
+  remedialState.revealed = false;
+  const item = remedialState.pool[remedialState.index];
+  const isIdToEn = state.direction === 'id-en';
+  const word = item.word;
+
+  const questionText = isIdToEn ? word.id : word.en;
+  const answerText = isIdToEn ? word.en : word.id;
+
+  const chip = document.getElementById('remedialLevelChip');
+  chip.textContent = item.level;
+  chip.className = 'level-chip remedial-chip';
+
+  document.getElementById('flashLabel').textContent = isIdToEn
+    ? 'Apa Bahasa Inggrisnya?'
+    : 'Apa artinya dalam Bahasa Indonesia?';
+  document.getElementById('flashWord').textContent = questionText;
+  document.getElementById('remStreak').textContent = item.streak;
+
+  const speakBtn = document.getElementById('flashSpeak');
+  speakBtn.style.display = isIdToEn ? 'none' : 'flex';
+  speakBtn.onclick = (e) => {
+    e.stopPropagation(); // jangan sampai membuka jawaban saat cuma mau dengar ucapan
+    speak(word.en, 'en-US');
+  };
+
+  const answerEl = document.getElementById('flashAnswer');
+  answerEl.textContent = answerText;
+  answerEl.classList.add('hidden');
+
+  renderStreakDots(item.streak);
+
+  document.getElementById('revealBtn').classList.remove('hidden');
+  document.getElementById('remedialActions').classList.add('hidden');
+
+  updateRemedialProgress();
+}
+
+function revealAnswer(){
+  if(remedialState.revealed) return;
+  remedialState.revealed = true;
+  const item = remedialState.pool[remedialState.index];
+  document.getElementById('flashAnswer').classList.remove('hidden');
+  speak(item.word.en, 'en-US');
+  document.getElementById('revealBtn').classList.add('hidden');
+  document.getElementById('remedialActions').classList.remove('hidden');
+}
+
+document.getElementById('flashcard').addEventListener('click', revealAnswer);
+document.getElementById('revealBtn').addEventListener('click', revealAnswer);
+
+document.getElementById('remedialCorrectBtn').addEventListener('click', () => {
+  const item = remedialState.pool[remedialState.index];
+  const newStreak = (item.streak || 0) + 1;
+  if(newStreak >= MASTERY_STREAK){
+    markMastered(item.level, item.word.en);
+  }else{
+    markRemedial(item.level, item.word.en, newStreak);
+  }
+  advanceRemedial();
+});
+
+document.getElementById('remedialWrongBtn').addEventListener('click', () => {
+  const item = remedialState.pool[remedialState.index];
+  markRemedial(item.level, item.word.en, 0);
+  advanceRemedial();
+});
+
+function advanceRemedial(){
+  remedialState.index++;
+  if(remedialState.index >= remedialState.pool.length){
+    finishRemedialRound();
+  }else{
+    renderFlashcard();
+  }
+}
+
+function finishRemedialRound(){
+  window.speechSynthesis && window.speechSynthesis.cancel();
+  const remaining = buildRemedialPool();
+
+  if(remaining.length > 0){
+    // masih ada kata yang belum genap 7x benar berturut-turut — lanjut putaran baru
+    remedialState.pool = shuffle(remaining);
+    remedialState.total = remedialState.pool.length;
+    remedialState.index = 0;
+    renderFlashcard();
+    return;
+  }
+
+  document.getElementById('resultStats').classList.add('hidden');
+  document.getElementById('resultEmoji').textContent = '🏆';
+  document.getElementById('resultTitle').textContent = 'Latihan Ulang Tuntas!';
+  document.getElementById('resultSubtitle').textContent =
+    'Semua kata yang tadinya salah sudah kamu kuasai 7x berturut-turut.';
+  showScreen('result');
+}
+
+// ---------- init ----------
+refreshHomeUI();

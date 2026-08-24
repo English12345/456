@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Belajar Kata — Oxford 3000</title>
 <style>
   :root{
@@ -23,10 +23,18 @@
     --good-bg:#e2f9ee;
     --bad:#ef5a5a;
     --bad-bg:#fdeaea;
-    --shadow: 0 10px 30px rgba(43,36,64,0.12);
+    --remedial:#f5a524;
+    --remedial-deep:#c9860f;
+    --shadow: 0 8px 22px rgba(43,36,64,0.12);
+    --vh: 1vh; /* set by JS for mobile address-bar accuracy */
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  html,body{
+    margin:0;padding:0;
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
   body{
     font-family:'Poppins','Segoe UI',system-ui,-apple-system,sans-serif;
     background:
@@ -34,93 +42,116 @@
       radial-gradient(circle at 90% 20%, #e8f4ff 0%, transparent 40%),
       linear-gradient(160deg, #fffaf0 0%, #f2f7ff 100%);
     color:var(--ink);
-    min-height:100vh;
     -webkit-font-smoothing:antialiased;
+    height: calc(var(--vh, 1vh) * 100);
+    width:100vw;
   }
   .wrap{
+    height:100%;
     max-width:720px;
     margin:0 auto;
-    padding:24px 18px 60px;
+    padding: clamp(8px, 2.2vh, 16px) 16px;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
   }
   header.top{
     display:flex;
     align-items:center;
     justify-content:space-between;
-    margin-bottom:22px;
+    gap:8px;
+    flex-shrink:0;
+    margin-bottom: clamp(6px, 1.6vh, 14px);
   }
   .brand{
     display:flex;
     align-items:center;
-    gap:10px;
+    gap:9px;
+    min-width:0;
   }
   .brand-badge{
-    width:44px;height:44px;border-radius:14px;
+    width: clamp(30px, 5.5vh, 40px);
+    height: clamp(30px, 5.5vh, 40px);
+    border-radius:12px;
     background:linear-gradient(135deg,#ff9f68,#c084f5);
     display:flex;align-items:center;justify-content:center;
-    font-size:22px;
+    font-size: clamp(15px, 2.6vh, 20px);
     box-shadow:var(--shadow);
     flex-shrink:0;
   }
   .brand h1{
-    font-size:19px;
+    font-size: clamp(14px, 2.3vh, 18px);
     margin:0;
     line-height:1.15;
     letter-spacing:-0.2px;
   }
   .brand p{
-    margin:2px 0 0;
-    font-size:12.5px;
+    margin:1px 0 0;
+    font-size: clamp(10px, 1.5vh, 12px);
     color:var(--ink-soft);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .icon-btn{
     border:none;
     background:var(--card);
     box-shadow:var(--shadow);
-    width:40px;height:40px;
-    border-radius:12px;
+    width: clamp(32px, 5.2vh, 38px);
+    height: clamp(32px, 5.2vh, 38px);
+    border-radius:11px;
     display:flex;align-items:center;justify-content:center;
     cursor:pointer;
-    font-size:18px;
+    font-size: clamp(14px, 2.2vh, 17px);
     color:var(--ink);
+    flex-shrink:0;
     transition:transform .15s ease;
   }
   .icon-btn:active{transform:scale(0.92);}
 
+  .screen{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .hidden{display:none !important;}
+
   /* ---------- HOME ---------- */
   .hero{
     text-align:center;
-    margin:18px 0 28px;
+    flex-shrink:0;
+    margin-bottom: clamp(6px, 1.4vh, 12px);
   }
   .hero h2{
-    font-size:26px;
-    margin:0 0 6px;
+    font-size: clamp(17px, 3vh, 23px);
+    margin:0 0 3px;
     letter-spacing:-0.4px;
   }
   .hero p{
     color:var(--ink-soft);
-    font-size:14.5px;
+    font-size: clamp(11px, 1.7vh, 13px);
     margin:0;
-    max-width:460px;
-    margin:0 auto;
   }
   .direction-toggle{
     display:flex;
     justify-content:center;
-    margin:20px 0 26px;
+    flex-shrink:0;
+    margin-bottom: clamp(6px, 1.4vh, 12px);
   }
   .seg{
     display:inline-flex;
     background:var(--card);
     border-radius:100px;
-    padding:5px;
+    padding:4px;
     box-shadow:var(--shadow);
   }
   .seg button{
     border:none;
     background:transparent;
-    padding:9px 16px;
+    padding: clamp(6px,1.2vh,9px) 14px;
     border-radius:100px;
-    font-size:13px;
+    font-size: clamp(11px,1.7vh,13px);
     font-weight:600;
     color:var(--ink-soft);
     cursor:pointer;
@@ -134,15 +165,52 @@
     box-shadow:0 4px 12px rgba(108,142,239,0.35);
   }
 
+  .remedial-btn{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    border:none;
+    border-radius:16px;
+    padding: clamp(8px,1.6vh,12px);
+    margin-bottom: clamp(6px, 1.4vh, 12px);
+    background:linear-gradient(135deg,var(--remedial),var(--remedial-deep));
+    color:#fff;
+    font-weight:700;
+    font-family:inherit;
+    font-size: clamp(12px,1.9vh,14.5px);
+    cursor:pointer;
+    box-shadow:0 6px 16px rgba(201,134,15,0.3);
+  }
+  .remedial-btn:active{transform:scale(0.98);}
+  .remedial-btn.empty{
+    background:#f3f0fb;
+    color:var(--ink-soft);
+    box-shadow:none;
+    cursor:default;
+  }
+  .remedial-btn .badge{
+    background:rgba(255,255,255,0.28);
+    padding:2px 9px;
+    border-radius:100px;
+    font-size:0.85em;
+  }
+  .remedial-btn.empty .badge{background:rgba(43,36,64,0.08);}
+
   .level-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:14px;
+    grid-template-rows:1fr 1fr;
+    gap: clamp(8px, 1.6vh, 14px);
+    flex:1;
+    min-height:0;
   }
   .level-card{
     position:relative;
-    border-radius:22px;
-    padding:20px 18px;
+    border-radius:20px;
+    padding: clamp(10px, 2vh, 18px) clamp(12px, 2.2vw, 18px);
     color:#fff;
     cursor:pointer;
     border:none;
@@ -150,11 +218,11 @@
     font-family:inherit;
     overflow:hidden;
     box-shadow:var(--shadow);
-    transition:transform .18s ease, box-shadow .18s ease;
-    min-height:132px;
+    transition:transform .15s ease;
     display:flex;
     flex-direction:column;
     justify-content:space-between;
+    min-height:0;
   }
   .level-card:active{transform:scale(0.97);}
   .level-card.a1{background:linear-gradient(135deg,var(--a1),var(--a1-deep));}
@@ -162,34 +230,38 @@
   .level-card.b1{background:linear-gradient(135deg,var(--b1),var(--b1-deep));}
   .level-card.b2{background:linear-gradient(135deg,var(--b2),var(--b2-deep));}
   .level-card .tag{
-    font-size:26px;
+    font-size: clamp(18px, 3.4vh, 24px);
     font-weight:800;
     letter-spacing:-0.5px;
   }
   .level-card .name{
-    font-size:12.5px;
+    font-size: clamp(10px, 1.6vh, 12px);
     opacity:0.92;
     font-weight:600;
-    margin-top:2px;
+    margin-top:1px;
   }
   .level-card .count{
-    font-size:12px;
-    opacity:0.85;
-    margin-top:14px;
+    font-size: clamp(10px, 1.5vh, 12px);
+    opacity:0.92;
+    margin-top:8px;
+    font-weight:600;
+  }
+  .level-card .subcount{
+    font-size: clamp(9px, 1.3vh, 10.5px);
+    opacity:0.8;
+    margin-top:2px;
   }
   .level-card .blob{
     position:absolute;
     right:-18px; bottom:-18px;
-    width:80px;height:80px;
+    width:70px;height:70px;
     background:rgba(255,255,255,0.15);
     border-radius:50%;
   }
-
-  .progress-note{
-    text-align:center;
-    margin-top:26px;
-    font-size:12.5px;
-    color:var(--ink-soft);
+  .level-card .donebadge{
+    position:absolute;
+    top:8px; right:10px;
+    font-size:16px;
   }
 
   /* ---------- QUIZ ---------- */
@@ -197,27 +269,31 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:10px;
-    margin-bottom:16px;
+    gap:8px;
+    flex-shrink:0;
+    margin-bottom: clamp(6px, 1.2vh, 10px);
   }
-  .quiz-header .level-chip{
+  .level-chip{
     font-weight:700;
-    font-size:13px;
-    padding:6px 12px;
+    font-size: clamp(11px,1.7vh,13px);
+    padding:5px 11px;
     border-radius:100px;
     color:#fff;
+    flex-shrink:0;
   }
-  .quiz-header .level-chip.a1{background:var(--a1-deep);}
-  .quiz-header .level-chip.a2{background:var(--a2-deep);}
-  .quiz-header .level-chip.b1{background:var(--b1-deep);}
-  .quiz-header .level-chip.b2{background:var(--b2-deep);}
+  .level-chip.a1{background:var(--a1-deep);}
+  .level-chip.a2{background:var(--a2-deep);}
+  .level-chip.b1{background:var(--b1-deep);}
+  .level-chip.b2{background:var(--b2-deep);}
+  .level-chip.remedial-chip{background:var(--remedial-deep);}
 
   .progress-bar-outer{
     background:#e9e5f5;
     border-radius:100px;
-    height:8px;
+    height:6px;
     overflow:hidden;
-    margin-bottom:22px;
+    flex-shrink:0;
+    margin-bottom: clamp(8px, 1.6vh, 14px);
   }
   .progress-bar-inner{
     height:100%;
@@ -230,48 +306,55 @@
   .score-row{
     display:flex;
     justify-content:center;
-    gap:18px;
-    font-size:13px;
+    gap:14px;
+    font-size: clamp(11px,1.6vh,13px);
     color:var(--ink-soft);
-    margin-bottom:14px;
   }
   .score-row span b{color:var(--good);}
   .score-row span.wrong b{color:var(--bad);}
+  .counter-text{
+    font-size: clamp(11px,1.6vh,12.5px);
+    color:var(--ink-soft);
+    font-weight:600;
+    flex-shrink:0;
+  }
 
   .question-card{
     background:var(--card);
-    border-radius:24px;
-    padding:30px 24px;
+    border-radius:20px;
+    padding: clamp(12px, 2.6vh, 26px) 18px;
     box-shadow:var(--shadow);
     text-align:center;
-    margin-bottom:18px;
+    flex-shrink:0;
+    margin-bottom: clamp(8px, 1.6vh, 14px);
   }
   .question-label{
-    font-size:12px;
+    font-size: clamp(9.5px, 1.4vh, 11.5px);
     text-transform:uppercase;
     letter-spacing:1px;
     color:var(--ink-soft);
     font-weight:600;
-    margin-bottom:10px;
+    margin-bottom: clamp(4px, 1vh, 9px);
   }
   .question-word-row{
     display:flex;
     align-items:center;
     justify-content:center;
-    gap:10px;
+    gap:8px;
     flex-wrap:wrap;
   }
   .question-word{
-    font-size:28px;
+    font-size: clamp(18px, 3.6vh, 26px);
     font-weight:700;
     letter-spacing:-0.3px;
-    line-height:1.25;
+    line-height:1.2;
   }
   .speak-btn{
     border:none;
     background:linear-gradient(135deg,#ffe1c2,#ffd0a6);
     color:var(--a1-deep);
-    width:42px;height:42px;
+    width: clamp(32px, 5.5vh, 40px);
+    height: clamp(32px, 5.5vh, 40px);
     border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     cursor:pointer;
@@ -280,63 +363,68 @@
     transition:transform .15s ease;
   }
   .speak-btn:active{transform:scale(0.88);}
-  .speak-btn svg{width:20px;height:20px;}
-  .speak-btn.small{width:32px;height:32px;}
-  .speak-btn.small svg{width:15px;height:15px;}
+  .speak-btn svg{width:55%;height:55%;}
+  .speak-btn.small{width:28px;height:28px;}
 
   .options{
     display:flex;
     flex-direction:column;
-    gap:11px;
+    gap: clamp(6px, 1.2vh, 10px);
+    flex:1;
+    min-height:0;
   }
   .option{
+    flex:1;
+    min-height:0;
     display:flex;
     align-items:center;
-    gap:12px;
+    gap:10px;
     background:var(--card);
     border:2px solid #ece7f7;
-    border-radius:16px;
-    padding:14px 16px;
+    border-radius:14px;
+    padding: 6px clamp(10px,2.5vw,16px);
     text-align:left;
     cursor:pointer;
     font-family:inherit;
-    font-size:15px;
+    font-size: clamp(12.5px, 2vh, 15px);
     color:var(--ink);
-    box-shadow:0 2px 8px rgba(43,36,64,0.04);
+    box-shadow:0 2px 6px rgba(43,36,64,0.04);
     transition:border-color .15s ease, background .15s ease, transform .1s ease;
   }
   .option:active{transform:scale(0.985);}
   .option .letter{
-    width:28px;height:28px;
-    border-radius:9px;
+    width: clamp(20px,3.6vh,26px);
+    height: clamp(20px,3.6vh,26px);
+    border-radius:8px;
     background:#f3f0fb;
     color:var(--ink-soft);
     display:flex;align-items:center;justify-content:center;
     font-weight:700;
-    font-size:13px;
+    font-size: clamp(10px,1.6vh,12.5px);
     flex-shrink:0;
   }
-  .option .opt-text{flex:1;}
-  .option.correct{
-    border-color:var(--good);
-    background:var(--good-bg);
+  .option .opt-text{
+    flex:1;
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
   }
+  .option.correct{border-color:var(--good); background:var(--good-bg);}
   .option.correct .letter{background:var(--good);color:#fff;}
-  .option.wrong{
-    border-color:var(--bad);
-    background:var(--bad-bg);
-  }
+  .option.wrong{border-color:var(--bad); background:var(--bad-bg);}
   .option.wrong .letter{background:var(--bad);color:#fff;}
   .option.disabled{cursor:default;}
 
   .feedback-banner{
     text-align:center;
     font-weight:700;
-    font-size:14.5px;
-    padding:12px;
-    border-radius:14px;
-    margin-top:14px;
+    font-size: clamp(11.5px, 1.8vh, 13.5px);
+    padding: clamp(6px,1.2vh,10px);
+    border-radius:12px;
+    margin-top: clamp(6px, 1.2vh, 10px);
     display:none;
+    flex-shrink:0;
   }
   .feedback-banner.show{display:block;}
   .feedback-banner.good{background:var(--good-bg);color:var(--good);}
@@ -344,58 +432,147 @@
 
   .next-btn{
     width:100%;
-    margin-top:16px;
-    padding:15px;
+    flex-shrink:0;
+    margin-top: clamp(6px, 1.2vh, 10px);
+    padding: clamp(9px, 1.8vh, 14px);
     border:none;
-    border-radius:16px;
+    border-radius:14px;
     background:linear-gradient(135deg,#6c8eef,#c084f5);
     color:#fff;
     font-weight:700;
-    font-size:15px;
+    font-size: clamp(12.5px, 2vh, 15px);
     font-family:inherit;
     cursor:pointer;
-    box-shadow:0 8px 18px rgba(108,142,239,0.3);
+    box-shadow:0 6px 14px rgba(108,142,239,0.3);
     display:none;
   }
   .next-btn.show{display:block;}
   .next-btn:active{transform:scale(0.98);}
 
+  /* ---------- REMEDIAL FLASHCARD ---------- */
+  .flashcard-wrap{
+    flex:1;
+    min-height:0;
+    display:flex;
+    align-items:stretch;
+    justify-content:center;
+  }
+  .flashcard{
+    width:100%;
+    background:var(--card);
+    border-radius:22px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap: clamp(6px,1.4vh,12px);
+    padding: clamp(12px, 2.4vh, 22px);
+    text-align:center;
+    cursor:pointer;
+    border:2px dashed #f0c46a;
+  }
+  .flash-label{
+    font-size: clamp(9.5px, 1.4vh, 11.5px);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
+  .flash-word{
+    font-size: clamp(19px, 4vh, 28px);
+    font-weight:700;
+  }
+  .flash-answer{
+    font-size: clamp(16px, 3.2vh, 23px);
+    font-weight:700;
+    color:var(--remedial-deep);
+    border-top:2px dashed #f0c46a;
+    padding-top: clamp(6px,1.4vh,12px);
+    width:100%;
+  }
+  .streak-dots{
+    display:flex;
+    gap:4px;
+    margin-top:2px;
+  }
+  .streak-dots .dot{
+    width: clamp(7px,1.3vh,9px);
+    height: clamp(7px,1.3vh,9px);
+    border-radius:50%;
+    background:#ece7f7;
+  }
+  .streak-dots .dot.filled{background:var(--remedial);}
+
+  .reveal-btn{
+    flex-shrink:0;
+    width:100%;
+    margin-top: clamp(8px,1.6vh,14px);
+    padding: clamp(10px, 1.8vh, 14px);
+    border:none;
+    border-radius:14px;
+    background:linear-gradient(135deg,var(--remedial),var(--remedial-deep));
+    color:#fff;
+    font-weight:700;
+    font-size: clamp(12.5px, 2vh, 15px);
+    font-family:inherit;
+    cursor:pointer;
+    box-shadow:0 6px 14px rgba(201,134,15,0.3);
+  }
+  .reveal-btn:active{transform:scale(0.98);}
+
+  .remedial-actions{
+    flex-shrink:0;
+    display:flex;
+    gap:10px;
+    margin-top: clamp(8px,1.6vh,14px);
+  }
+  .remedial-actions.hidden{display:none;}
+  .remedial-actions button{
+    flex:1;
+    border:none;
+    border-radius:14px;
+    padding: clamp(10px, 1.8vh, 14px);
+    font-weight:700;
+    font-family:inherit;
+    font-size: clamp(12px, 1.9vh, 14.5px);
+    cursor:pointer;
+  }
+  .btn-wrong{background:var(--bad-bg); color:var(--bad);}
+  .btn-correct{background:var(--good-bg); color:var(--good);}
+  .remedial-actions button:active{transform:scale(0.97);}
+
   /* ---------- RESULT ---------- */
+  #resultScreen{align-items:center; justify-content:center;}
   .result-card{
     background:var(--card);
-    border-radius:24px;
-    padding:36px 24px;
+    border-radius:22px;
+    padding: clamp(20px, 4vh, 36px) 22px;
     text-align:center;
     box-shadow:var(--shadow);
+    width:100%;
   }
-  .result-card .emoji{font-size:52px;margin-bottom:8px;}
-  .result-card h2{margin:0 0 6px;font-size:22px;}
-  .result-card p{color:var(--ink-soft);font-size:14px;margin:0 0 22px;}
+  .result-card .emoji{font-size: clamp(34px, 7vh, 50px); margin-bottom:6px;}
+  .result-card h2{margin:0 0 4px;font-size: clamp(17px, 3vh, 21px);}
+  .result-card p{color:var(--ink-soft);font-size: clamp(11.5px, 1.9vh, 13.5px);margin:0 0 16px;}
   .result-stats{
     display:flex;
     justify-content:center;
-    gap:26px;
-    margin-bottom:26px;
+    gap:22px;
+    margin-bottom:18px;
   }
   .result-stats div{text-align:center;}
-  .result-stats .num{font-size:26px;font-weight:800;}
-  .result-stats .lbl{font-size:11.5px;color:var(--ink-soft);}
-  .result-actions{display:flex;flex-direction:column;gap:10px;}
+  .result-stats .num{font-size: clamp(18px, 3.4vh, 25px);font-weight:800;}
+  .result-stats .lbl{font-size: clamp(9.5px, 1.4vh, 11px);color:var(--ink-soft);}
+  .result-actions{display:flex;flex-direction:column;gap:9px;}
   .btn-primary{
-    padding:15px;border:none;border-radius:16px;
+    padding: clamp(10px, 1.8vh, 14px);border:none;border-radius:14px;
     background:linear-gradient(135deg,#6c8eef,#c084f5);
-    color:#fff;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer;
+    color:#fff;font-weight:700;font-size: clamp(12.5px,2vh,15px);font-family:inherit;cursor:pointer;
   }
   .btn-secondary{
-    padding:15px;border:none;border-radius:16px;
-    background:#f3f0fb;color:var(--ink);font-weight:700;font-size:15px;font-family:inherit;cursor:pointer;
-  }
-
-  .hidden{display:none !important;}
-
-  @media (max-width:380px){
-    .question-word{font-size:23px;}
-    .level-card .tag{font-size:22px;}
+    padding: clamp(10px, 1.8vh, 14px);border:none;border-radius:14px;
+    background:#f3f0fb;color:var(--ink);font-weight:700;font-size: clamp(12.5px,2vh,15px);font-family:inherit;cursor:pointer;
   }
 </style>
 </head>
@@ -405,19 +582,19 @@
   <header class="top">
     <div class="brand">
       <div class="brand-badge">📚</div>
-      <div>
+      <div style="min-width:0;">
         <h1>Belajar Kata</h1>
-        <p>Oxford 3000 Quiz</p>
+        <p id="brandSubtitle">Oxford 3000 Quiz</p>
       </div>
     </div>
     <button class="icon-btn" id="homeBtn" title="Beranda">🏠</button>
   </header>
 
   <!-- ============ HOME SCREEN ============ -->
-  <section id="homeScreen">
+  <section id="homeScreen" class="screen">
     <div class="hero">
       <h2>Pilih Level Kamu</h2>
-      <p>3.308 kata penting Bahasa Inggris, berdasarkan CEFR level A1 sampai B2.</p>
+      <p>3.308 kata penting, CEFR A1–B2</p>
     </div>
 
     <div class="direction-toggle">
@@ -427,45 +604,56 @@
       </div>
     </div>
 
+    <button class="remedial-btn" id="remedialBtn">
+      <span>🔁 Latihan Ulang</span>
+      <span class="badge" id="remedialBadge">0 kata</span>
+    </button>
+
     <div class="level-grid">
       <button class="level-card a1" data-level="A1">
         <div class="blob"></div>
+        <div class="donebadge hidden" data-done="A1">🏆</div>
         <div class="tag">A1</div>
         <div class="name">Pemula</div>
-        <div class="count" data-count="A1">900 kata</div>
+        <div class="count" data-count="A1">0/900 kata</div>
+        <div class="subcount hidden" data-remedial="A1"></div>
       </button>
       <button class="level-card a2" data-level="A2">
         <div class="blob"></div>
+        <div class="donebadge hidden" data-done="A2">🏆</div>
         <div class="tag">A2</div>
         <div class="name">Dasar Lanjutan</div>
-        <div class="count" data-count="A2">872 kata</div>
+        <div class="count" data-count="A2">0/872 kata</div>
+        <div class="subcount hidden" data-remedial="A2"></div>
       </button>
       <button class="level-card b1" data-level="B1">
         <div class="blob"></div>
+        <div class="donebadge hidden" data-done="B1">🏆</div>
         <div class="tag">B1</div>
         <div class="name">Menengah</div>
-        <div class="count" data-count="B1">809 kata</div>
+        <div class="count" data-count="B1">0/809 kata</div>
+        <div class="subcount hidden" data-remedial="B1"></div>
       </button>
       <button class="level-card b2" data-level="B2">
         <div class="blob"></div>
+        <div class="donebadge hidden" data-done="B2">🏆</div>
         <div class="tag">B2</div>
         <div class="name">Menengah Atas</div>
-        <div class="count" data-count="B2">727 kata</div>
+        <div class="count" data-count="B2">0/727 kata</div>
+        <div class="subcount hidden" data-remedial="B2"></div>
       </button>
     </div>
-
-    <p class="progress-note">Tiap kuis berisi 15 pertanyaan acak dari level pilihanmu. Pilihan jawaban selalu diacak 🔀</p>
   </section>
 
-  <!-- ============ QUIZ SCREEN ============ -->
-  <section id="quizScreen" class="hidden">
+  <!-- ============ QUIZ SCREEN (soal pilihan ganda) ============ -->
+  <section id="quizScreen" class="screen hidden">
     <div class="quiz-header">
       <span class="level-chip" id="quizLevelChip">A1</span>
-      <div class="score-row" style="margin:0;">
+      <div class="score-row">
         <span>Benar <b id="scoreGood">0</b></span>
         <span class="wrong">Salah <b id="scoreBad">0</b></span>
       </div>
-      <span id="quizCounter" style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">1/15</span>
+      <span id="quizCounter" class="counter-text">1/15</span>
     </div>
     <div class="progress-bar-outer">
       <div class="progress-bar-inner" id="progressBar"></div>
@@ -487,19 +675,53 @@
     <button class="next-btn" id="nextBtn">Lanjut →</button>
   </section>
 
+  <!-- ============ REMEDIAL SCREEN (flashcard) ============ -->
+  <section id="remedialScreen" class="screen hidden">
+    <div class="quiz-header">
+      <span class="level-chip remedial-chip" id="remedialLevelChip">A1</span>
+      <div class="score-row">
+        <span>🔥 Streak <b id="remStreak">0</b>/7</span>
+      </div>
+      <span id="remedialCounter" class="counter-text">1/12</span>
+    </div>
+    <div class="progress-bar-outer">
+      <div class="progress-bar-inner" id="remedialProgressBar"></div>
+    </div>
+
+    <div class="flashcard-wrap">
+      <div class="flashcard" id="flashcard">
+        <div class="flash-label" id="flashLabel">Coba ingat artinya</div>
+        <div class="question-word-row">
+          <div class="flash-word" id="flashWord">word</div>
+          <button class="speak-btn small" id="flashSpeak" title="Dengarkan">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06c1.48-.74 2.5-2.26 2.5-4.03zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          </button>
+        </div>
+        <div class="flash-answer hidden" id="flashAnswer"></div>
+        <div class="streak-dots" id="streakDots"></div>
+      </div>
+    </div>
+
+    <button class="reveal-btn" id="revealBtn">👁️ Lihat Jawaban</button>
+    <div class="remedial-actions hidden" id="remedialActions">
+      <button class="btn-wrong" id="remedialWrongBtn">❌ Masih Salah</button>
+      <button class="btn-correct" id="remedialCorrectBtn">✅ Sudah Benar</button>
+    </div>
+  </section>
+
   <!-- ============ RESULT SCREEN ============ -->
-  <section id="resultScreen" class="hidden">
+  <section id="resultScreen" class="screen hidden">
     <div class="result-card">
       <div class="emoji" id="resultEmoji">🎉</div>
       <h2 id="resultTitle">Kuis Selesai!</h2>
       <p id="resultSubtitle">Kerja bagus, terus semangat belajar!</p>
-      <div class="result-stats">
+      <div class="result-stats" id="resultStats">
         <div><div class="num" style="color:var(--good)" id="resultGood">0</div><div class="lbl">BENAR</div></div>
         <div><div class="num" style="color:var(--bad)" id="resultBad">0</div><div class="lbl">SALAH</div></div>
         <div><div class="num" id="resultPct">0%</div><div class="lbl">SKOR</div></div>
       </div>
       <div class="result-actions">
-        <button class="btn-primary" id="retryBtn">🔁 Ulangi Level Ini</button>
+        <button class="btn-primary" id="retryBtn">🔁 Lanjut Belajar</button>
         <button class="btn-secondary" id="backHomeBtn">🏠 Pilih Level Lain</button>
       </div>
     </div>
