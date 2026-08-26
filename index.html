@@ -542,6 +542,94 @@
   .btn-correct{background:var(--good-bg); color:var(--good);}
   .remedial-actions button:active{transform:scale(0.97);}
 
+  /* ---------- PROGRESS DASHBOARD ---------- */
+  .progress-screen{
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:4px;
+  }
+  .stats-card{
+    background:var(--card);
+    border-radius:18px;
+    padding: clamp(12px,2.4vh,18px);
+    box-shadow:var(--shadow);
+    margin-bottom:10px;
+    flex-shrink:0;
+  }
+  .stats-card h3{
+    margin:0 0 10px;
+    font-size: clamp(12.5px,1.9vh,14px);
+    letter-spacing:-0.1px;
+  }
+  .big-stat{
+    display:flex;
+    align-items:baseline;
+    gap:6px;
+    flex-wrap:wrap;
+    margin-bottom:2px;
+  }
+  .big-stat .num{font-size: clamp(24px, 4.4vh, 30px); font-weight:800; line-height:1;}
+  .big-stat .of{font-size: clamp(12px,1.8vh,13.5px); color:var(--ink-soft);}
+  .big-stat .pct{font-size: clamp(12px,1.8vh,13.5px); color:var(--b1-deep); font-weight:700;}
+  .mini-stats{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    font-size: clamp(11px,1.7vh,12.5px);
+    color:var(--ink-soft);
+    margin-top:9px;
+  }
+  .mini-stats b{color:var(--ink);}
+  .cefr-banner{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    color:#fff;
+    border-radius:16px;
+    padding: clamp(10px,2vh,15px) 16px;
+    margin-bottom:10px;
+    flex-shrink:0;
+  }
+  .cefr-banner .emoji{font-size: clamp(22px,4vh,28px); flex-shrink:0;}
+  .cefr-banner .lvl{font-size: clamp(16px,2.6vh,19px); font-weight:800; line-height:1.2;}
+  .cefr-banner .desc{font-size: clamp(10.5px,1.6vh,12px); opacity:.92;}
+  .level-progress-item{margin-bottom:13px;}
+  .level-progress-item:last-child{margin-bottom:0;}
+  .level-progress-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size: clamp(11.5px,1.7vh,13px);
+    font-weight:700;
+    margin-bottom:5px;
+    gap:8px;
+  }
+  .level-progress-head .lvl-name{color:var(--ink-soft); font-weight:600; margin-left:6px;}
+  .level-progress-bar-outer{
+    background:#e9e5f5;
+    border-radius:100px;
+    height:8px;
+    overflow:hidden;
+  }
+  .level-progress-bar-inner{
+    height:100%;
+    border-radius:100px;
+    transition:width .3s ease;
+  }
+  .level-progress-bar-inner.a1{background:linear-gradient(90deg,var(--a1),var(--a1-deep));}
+  .level-progress-bar-inner.a2{background:linear-gradient(90deg,var(--a2),var(--a2-deep));}
+  .level-progress-bar-inner.b1{background:linear-gradient(90deg,var(--b1),var(--b1-deep));}
+  .level-progress-bar-inner.b2{background:linear-gradient(90deg,var(--b2),var(--b2-deep));}
+  .level-progress-foot{
+    display:flex;
+    justify-content:space-between;
+    font-size: clamp(10px,1.5vh,11.5px);
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+  .level-progress-foot .rem{color:var(--remedial-deep); font-weight:600;}
+
   /* ---------- RESULT ---------- */
   #resultScreen{align-items:center; justify-content:center;}
   .result-card{
@@ -587,7 +675,10 @@
         <p id="brandSubtitle">Oxford 3000 Quiz</p>
       </div>
     </div>
-    <button class="icon-btn" id="homeBtn" title="Beranda">🏠</button>
+    <div style="display:flex; gap:8px; flex-shrink:0;">
+      <button class="icon-btn" id="progressBtn" title="Progres">📊</button>
+      <button class="icon-btn" id="homeBtn" title="Beranda">🏠</button>
+    </div>
   </header>
 
   <!-- ============ HOME SCREEN ============ -->
@@ -706,6 +797,40 @@
     <div class="remedial-actions hidden" id="remedialActions">
       <button class="btn-wrong" id="remedialWrongBtn">❌ Masih Salah</button>
       <button class="btn-correct" id="remedialCorrectBtn">✅ Sudah Benar</button>
+    </div>
+  </section>
+
+  <!-- ============ PROGRESS DASHBOARD ============ -->
+  <section id="progressScreen" class="screen progress-screen hidden">
+    <div class="stats-card">
+      <h3>📈 Ringkasan Keseluruhan</h3>
+      <div class="big-stat">
+        <span class="num" id="progMasteredNum">0</span>
+        <span class="of">/ <span id="progTotalWords">3.308</span> kata dikuasai</span>
+        <span class="pct" id="progMasteredPct">(0%)</span>
+      </div>
+      <div class="mini-stats">
+        <span>✅ Jawaban benar: <b id="progTotalCorrect">0</b></span>
+        <span>❌ Jawaban salah: <b id="progTotalWrong">0</b></span>
+        <span>🎯 Akurasi: <b id="progAccuracy">–</b></span>
+      </div>
+      <div class="mini-stats">
+        <span>🔁 Masih diulang: <b id="progRemedialNum">0</b> kata</span>
+        <span>⬜ Belum dicoba: <b id="progUntouchedNum">0</b> kata</span>
+      </div>
+    </div>
+
+    <div class="cefr-banner">
+      <div class="emoji" id="cefrEmoji">🌱</div>
+      <div>
+        <div class="lvl" id="cefrLevel">A1</div>
+        <div class="desc" id="cefrDesc">Baru mulai</div>
+      </div>
+    </div>
+
+    <div class="stats-card">
+      <h3>📊 Progres per Level</h3>
+      <div id="levelProgressList"></div>
     </div>
   </section>
 

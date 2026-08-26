@@ -12,6 +12,8 @@
 const NUM_OPTIONS = 5;
 const MASTERY_STREAK = 7;
 const STORAGE_KEY = 'belajarKata_progress_v1';
+const STATS_KEY = 'belajarKata_stats_v1'; // riwayat total jawaban benar/salah sepanjang waktu
+const LEVEL_ORDER = ['A1', 'A2', 'B1', 'B2'];
 
 let state = {
   direction: 'id-en',
@@ -112,6 +114,39 @@ function buildRemedialPool(){
   return list;
 }
 
+// ---------- lifetime stats (total jawaban benar/salah, terpisah dari status mastery) ----------
+function loadStats(){
+  try{
+    const raw = localStorage.getItem(STATS_KEY);
+    return raw ? JSON.parse(raw) : { totalCorrect: 0, totalWrong: 0, byLevel: {} };
+  }catch(e){
+    console.warn('Gagal membaca statistik, mulai dari kosong.', e);
+    return { totalCorrect: 0, totalWrong: 0, byLevel: {} };
+  }
+}
+
+function saveStats(stats){
+  try{
+    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  }catch(e){
+    console.warn('Gagal menyimpan statistik.', e);
+  }
+}
+
+// dipanggil setiap kali user menjawab (baik di kuis utama maupun flashcard remedial)
+function recordAttempt(level, correct){
+  const s = loadStats();
+  if(!s.byLevel[level]) s.byLevel[level] = { correct: 0, wrong: 0 };
+  if(correct){
+    s.totalCorrect++;
+    s.byLevel[level].correct++;
+  }else{
+    s.totalWrong++;
+    s.byLevel[level].wrong++;
+  }
+  saveStats(s);
+}
+
 // ---------- helpers ----------
 function shuffle(arr){
   const a = arr.slice();
@@ -165,6 +200,7 @@ const screens = {
   home: document.getElementById('homeScreen'),
   quiz: document.getElementById('quizScreen'),
   remedial: document.getElementById('remedialScreen'),
+  progress: document.getElementById('progressScreen'),
   result: document.getElementById('resultScreen')
 };
 
@@ -173,7 +209,12 @@ function showScreen(name){
     el.classList.toggle('hidden', key !== name);
   });
   if(name === 'home') refreshHomeUI();
+  if(name === 'progress') renderProgressScreen();
 }
+
+document.getElementById('progressBtn').addEventListener('click', () => {
+  showScreen('progress');
+});
 
 // ---------- home screen ----------
 const dirIDEN = document.getElementById('dirIDEN');
@@ -268,6 +309,88 @@ function refreshHomeUI(){
   const remBadge = document.getElementById('remedialBadge');
   remBadge.textContent = `${remAllCount} kata`;
   remBtn.classList.toggle('empty', remAllCount === 0);
+}
+
+// ---------- progress dashboard ----------
+function renderProgressScreen(){
+  const stats = loadStats();
+
+  let totalWords = 0, totalMastered = 0, totalRemedial = 0;
+  const perLevel = {};
+
+  LEVEL_ORDER.forEach(level => {
+    const total = WORD_DATA[level].length;
+    const mastered = countMastered(level);
+    const remedial = countRemedial(level);
+    const untouched = total - mastered - remedial;
+    perLevel[level] = { total, mastered, remedial, untouched };
+    totalWords += total;
+    totalMastered += mastered;
+    totalRemedial += remedial;
+  });
+  const totalUntouched = totalWords - totalMastered - totalRemedial;
+  const masteredPct = totalWords ? Math.round((totalMastered / totalWords) * 100) : 0;
+
+  document.getElementById('progMasteredNum').textContent = totalMastered.toLocaleString('id-ID');
+  document.getElementById('progTotalWords').textContent = totalWords.toLocaleString('id-ID');
+  document.getElementById('progMasteredPct').textContent = `(${masteredPct}%)`;
+  document.getElementById('progRemedialNum').textContent = totalRemedial.toLocaleString('id-ID');
+  document.getElementById('progUntouchedNum').textContent = totalUntouched.toLocaleString('id-ID');
+
+  const totalAttempts = stats.totalCorrect + stats.totalWrong;
+  document.getElementById('progTotalCorrect').textContent = stats.totalCorrect.toLocaleString('id-ID');
+  document.getElementById('progTotalWrong').textContent = stats.totalWrong.toLocaleString('id-ID');
+  document.getElementById('progAccuracy').textContent = totalAttempts
+    ? Math.round((stats.totalCorrect / totalAttempts) * 100) + '%'
+    : '– (belum ada jawaban)';
+
+  // level CEFR yang sedang dikerjakan: level pertama (urut A1->B2) yang belum 100% mastered
+  let currentLevel = LEVEL_ORDER.find(lv => perLevel[lv].mastered < perLevel[lv].total);
+  const cefrEmoji = document.getElementById('cefrEmoji');
+  const cefrLevel = document.getElementById('cefrLevel');
+  const cefrDesc = document.getElementById('cefrDesc');
+
+  if(!currentLevel){
+    cefrEmoji.textContent = '🏆';
+    cefrLevel.textContent = 'Semua Level Tuntas!';
+    cefrDesc.textContent = '3.308 kata Oxford 3000 sudah kamu kuasai semua.';
+  }else{
+    const lv = perLevel[currentLevel];
+    const pct = lv.total ? Math.round((lv.mastered / lv.total) * 100) : 0;
+    let emoji = '🌱', desc = 'Baru mulai level ini';
+    if(pct >= 90){ emoji = '🔥'; desc = `Hampir tuntas — tinggal ${lv.total - lv.mastered} kata lagi`; }
+    else if(pct >= 50){ emoji = '📘'; desc = `Sedang dipelajari, sudah ${pct}% dari level ini`; }
+    else if(pct > 0){ emoji = '🌱'; desc = `Baru ${pct}% dari level ini, terus lanjut`; }
+    cefrEmoji.textContent = emoji;
+    cefrLevel.textContent = `Level saat ini: ${currentLevel}`;
+    cefrDesc.textContent = desc;
+  }
+
+  // daftar progres per level
+  const list = document.getElementById('levelProgressList');
+  list.innerHTML = '';
+  LEVEL_ORDER.forEach(level => {
+    const lv = perLevel[level];
+    const pct = lv.total ? Math.round((lv.mastered / lv.total) * 100) : 0;
+    const levelNames = { A1: 'Pemula', A2: 'Dasar Lanjutan', B1: 'Menengah', B2: 'Menengah Atas' };
+
+    const item = document.createElement('div');
+    item.className = 'level-progress-item';
+    item.innerHTML = `
+      <div class="level-progress-head">
+        <span>${level}<span class="lvl-name">${levelNames[level]}</span></span>
+        <span>${pct}%</span>
+      </div>
+      <div class="level-progress-bar-outer">
+        <div class="level-progress-bar-inner ${level.toLowerCase()}" style="width:${pct}%"></div>
+      </div>
+      <div class="level-progress-foot">
+        <span>${lv.mastered}/${lv.total} kata dikuasai</span>
+        ${lv.remedial > 0 ? `<span class="rem">🔁 ${lv.remedial} diulang</span>` : ''}
+      </div>
+    `;
+    list.appendChild(item);
+  });
 }
 
 // ---------- quiz flow (kuis utama, pilihan ganda) ----------
@@ -368,11 +491,13 @@ function selectOption(i){
   if(correct){
     state.good++;
     markMastered(state.level, word.en);
+    recordAttempt(state.level, true);
     banner.className = 'feedback-banner show good';
     banner.textContent = '✅ Benar! Mantap!';
   }else{
     state.bad++;
     markRemedial(state.level, word.en, 0);
+    recordAttempt(state.level, false);
     banner.className = 'feedback-banner show bad';
     const correctText = state.direction === 'id-en' ? word.en : word.id;
     banner.textContent = `❌ Kurang tepat. Jawaban benar: ${correctText}`;
@@ -510,12 +635,14 @@ document.getElementById('remedialCorrectBtn').addEventListener('click', () => {
   }else{
     markRemedial(item.level, item.word.en, newStreak);
   }
+  recordAttempt(item.level, true);
   advanceRemedial();
 });
 
 document.getElementById('remedialWrongBtn').addEventListener('click', () => {
   const item = remedialState.pool[remedialState.index];
   markRemedial(item.level, item.word.en, 0);
+  recordAttempt(item.level, false);
   advanceRemedial();
 });
 
