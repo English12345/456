@@ -13,7 +13,14 @@ const NUM_OPTIONS = 5;
 const MASTERY_STREAK = 7;
 const STORAGE_KEY = 'belajarKata_progress_v1';
 const STATS_KEY = 'belajarKata_stats_v1'; // riwayat total jawaban benar/salah sepanjang waktu
+const COMFORT_KEY = 'belajarKata_comfort_v1';
 const LEVEL_ORDER = ['A1', 'A2', 'B1', 'B2'];
+
+// Audio hening berdurasi singkat, diputar loop selama mode "Bacakan" aktif.
+// Trik ini membantu browser (terutama Android Chrome) memperlakukan tab sebagai
+// sesi pemutaran media aktif, sehingga suara pembacaan lebih tahan saat layar
+// terkunci/mati. Ini best-effort — perilaku akhir tetap bergantung pada OS/browser.
+const SILENT_AUDIO_SRC = 'data:audio/wav;base64,UklGRqQlAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYAlAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA=';
 
 let state = {
   direction: 'id-en',
@@ -195,6 +202,22 @@ setVh();
 window.addEventListener('resize', setVh);
 window.addEventListener('orientationchange', setVh);
 
+// ---------- mode nyaman mata (comfort/dark mode, minim cahaya biru & silau) ----------
+function applyComfortMode(on){
+  document.documentElement.setAttribute('data-theme', on ? 'comfort' : 'default');
+  const btn = document.getElementById('comfortBtn');
+  btn.classList.toggle('active-mode', on);
+  btn.textContent = on ? '☀️' : '🌙';
+  btn.title = on ? 'Mode Terang' : 'Mode Nyaman Mata';
+}
+let comfortOn = localStorage.getItem(COMFORT_KEY) === '1';
+applyComfortMode(comfortOn);
+document.getElementById('comfortBtn').addEventListener('click', () => {
+  comfortOn = !comfortOn;
+  localStorage.setItem(COMFORT_KEY, comfortOn ? '1' : '0');
+  applyComfortMode(comfortOn);
+});
+
 // ---------- screens ----------
 const screens = {
   home: document.getElementById('homeScreen'),
@@ -232,6 +255,12 @@ dirENID.addEventListener('click', () => {
 });
 
 document.querySelectorAll('.level-card').forEach(card => {
+  card.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      card.click();
+    }
+  });
   card.addEventListener('click', () => {
     const level = card.dataset.level;
     const pool = buildMainPool(level);
@@ -255,7 +284,9 @@ document.getElementById('remedialBtn').addEventListener('click', () => {
 });
 
 document.getElementById('homeBtn').addEventListener('click', () => {
-  window.speechSynthesis && window.speechSynthesis.cancel();
+  if(!readerState.active){
+    window.speechSynthesis && window.speechSynthesis.cancel();
+  }
   showScreen('home');
 });
 
@@ -395,6 +426,7 @@ function renderProgressScreen(){
 
 // ---------- quiz flow (kuis utama, pilihan ganda) ----------
 function startQuiz(level){
+  stopReading();
   state.level = level;
   state.pool = shuffle(buildMainPool(level));
   state.index = 0;
@@ -469,6 +501,7 @@ function renderQuestion(){
   document.getElementById('feedbackBanner').className = 'feedback-banner';
   document.getElementById('feedbackBanner').textContent = '';
   document.getElementById('nextBtn').classList.remove('show');
+  document.getElementById('latihBtn').classList.remove('hidden');
 
   updateScoreRow();
 }
@@ -476,6 +509,7 @@ function renderQuestion(){
 function selectOption(i){
   if(state.answered) return;
   state.answered = true;
+  document.getElementById('latihBtn').classList.add('hidden');
 
   const word = state.pool[state.index];
   const options = document.querySelectorAll('.option');
@@ -516,6 +550,33 @@ document.getElementById('nextBtn').addEventListener('click', () => {
   }
 });
 
+// Tombol "Belum Tahu — Latih Kata Ini": dipakai saat sama sekali tidak tahu jawabannya.
+// Kata langsung masuk daftar Latihan Ulang (remedial) tanpa perlu menebak pilihan ganda.
+document.getElementById('latihBtn').addEventListener('click', () => {
+  if(state.answered) return;
+  state.answered = true;
+  document.getElementById('latihBtn').classList.add('hidden');
+
+  const word = state.pool[state.index];
+  const options = document.querySelectorAll('.option');
+  options.forEach((el, idx) => {
+    el.classList.add('disabled');
+    if(idx === state.currentCorrectIdx) el.classList.add('correct');
+  });
+
+  state.bad++;
+  markRemedial(state.level, word.en, 0);
+  recordAttempt(state.level, false);
+
+  const banner = document.getElementById('feedbackBanner');
+  banner.className = 'feedback-banner show bad';
+  const correctText = state.direction === 'id-en' ? word.en : word.id;
+  banner.textContent = `📌 Ditambahkan ke Latihan Ulang. Jawabannya: ${correctText}`;
+
+  updateScoreRow();
+  document.getElementById('nextBtn').classList.add('show');
+});
+
 function finishQuiz(){
   window.speechSynthesis && window.speechSynthesis.cancel();
   const total = state.good + state.bad;
@@ -545,6 +606,7 @@ function finishQuiz(){
 
 // ---------- remedial flow (flashcard) ----------
 function startRemedial(){
+  stopReading();
   remedialState.pool = shuffle(buildRemedialPool());
   remedialState.total = remedialState.pool.length;
   remedialState.index = 0;
@@ -675,6 +737,188 @@ function finishRemedialRound(){
     'Semua kata yang tadinya salah sudah kamu kuasai 7x berturut-turut.';
   showScreen('result');
 }
+
+// ---------- Bacakan: pembacaan kata acak terus-menerus per kelompok level ----------
+// Membacakan pasangan kata (kata + arti) secara acak dan berulang (looping) sampai
+// dihentikan. Menggunakan trik audio hening + Media Session API + Wake Lock supaya
+// pembacaan lebih tahan berjalan di latar belakang / saat layar terkunci.
+// Catatan: perilaku akhir tetap tergantung browser & OS — ini upaya terbaik (best-effort),
+// bukan jaminan mutlak di semua perangkat (terutama iOS Safari yang lebih ketat).
+let readerState = {
+  active: false,
+  level: null,
+  queue: [],
+  qi: 0,
+  keepAliveTimer: null,
+  silentAudio: null,
+  wakeLock: null
+};
+
+function ensureSilentAudio(){
+  if(readerState.silentAudio) return readerState.silentAudio;
+  const audio = document.createElement('audio');
+  audio.src = SILENT_AUDIO_SRC;
+  audio.loop = true;
+  audio.volume = 0.01;
+  audio.setAttribute('playsinline', '');
+  audio.style.display = 'none';
+  document.body.appendChild(audio);
+  readerState.silentAudio = audio;
+  return audio;
+}
+
+async function requestWakeLockSafe(){
+  try{
+    if('wakeLock' in navigator){
+      readerState.wakeLock = await navigator.wakeLock.request('screen');
+    }
+  }catch(e){
+    // Tidak didukung atau ditolak — pembacaan tetap lanjut lewat sesi audio.
+  }
+}
+
+function releaseWakeLockSafe(){
+  if(readerState.wakeLock){
+    try{ readerState.wakeLock.release(); }catch(e){/* ignore */}
+    readerState.wakeLock = null;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && readerState.active){
+    requestWakeLockSafe();
+  }
+});
+
+function setupMediaSession(level){
+  if(!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: 'Bacakan Kosakata — Level ' + level,
+    artist: 'Belajar Kata',
+    album: 'Oxford 3000'
+  });
+  navigator.mediaSession.playbackState = 'playing';
+  navigator.mediaSession.setActionHandler('pause', stopReading);
+  navigator.mediaSession.setActionHandler('stop', stopReading);
+  navigator.mediaSession.setActionHandler('play', () => {
+    if(readerState.active) navigator.mediaSession.playbackState = 'playing';
+  });
+}
+
+function clearMediaSession(){
+  if(!('mediaSession' in navigator)) return;
+  navigator.mediaSession.playbackState = 'none';
+  try{
+    navigator.mediaSession.setActionHandler('pause', null);
+    navigator.mediaSession.setActionHandler('stop', null);
+    navigator.mediaSession.setActionHandler('play', null);
+  }catch(e){/* ignore */}
+}
+
+function buildReaderQueue(level){
+  return shuffle(WORD_DATA[level]);
+}
+
+function updateReaderBarUI(word){
+  const isIdToEn = state.direction === 'id-en';
+  const text = isIdToEn ? `${word.id} — ${word.en}` : `${word.en} — ${word.id}`;
+  const el = document.getElementById('readerWord');
+  if(el) el.textContent = text;
+}
+
+function speakAsync(text, lang){
+  return new Promise((resolve) => {
+    if(!('speechSynthesis' in window)){ resolve(); return; }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = lang;
+    utter.rate = 0.9;
+    utter.onend = resolve;
+    utter.onerror = resolve;
+    window.speechSynthesis.speak(utter);
+  });
+}
+
+async function readerLoop(sessionLevel){
+  while(readerState.active && readerState.level === sessionLevel){
+    if(readerState.qi >= readerState.queue.length){
+      readerState.queue = buildReaderQueue(sessionLevel);
+      readerState.qi = 0;
+    }
+    const word = readerState.queue[readerState.qi++];
+    if(!readerState.active || readerState.level !== sessionLevel) break;
+    updateReaderBarUI(word);
+    await speakAsync(word.id, 'id-ID');
+    if(!readerState.active || readerState.level !== sessionLevel) break;
+    await new Promise(r => setTimeout(r, 250));
+    if(!readerState.active || readerState.level !== sessionLevel) break;
+    await speakAsync(word.en, 'en-US');
+    if(!readerState.active || readerState.level !== sessionLevel) break;
+    await new Promise(r => setTimeout(r, 550));
+  }
+}
+
+async function startReading(level){
+  if(readerState.active && readerState.level === level){
+    stopReading();
+    return;
+  }
+  stopReading();
+
+  readerState.active = true;
+  readerState.level = level;
+  readerState.queue = buildReaderQueue(level);
+  readerState.qi = 0;
+
+  document.querySelectorAll('.read-btn').forEach(b => {
+    b.classList.toggle('playing', b.dataset.read === level);
+  });
+
+  document.getElementById('readerLevel').textContent = `${level} • Bacakan Terus-menerus`;
+  document.getElementById('readerWord').textContent = 'Memulai…';
+  document.getElementById('readerBar').classList.remove('hidden');
+
+  ensureSilentAudio().play().catch(() => {});
+  setupMediaSession(level);
+  await requestWakeLockSafe();
+
+  if(readerState.keepAliveTimer) clearInterval(readerState.keepAliveTimer);
+  readerState.keepAliveTimer = setInterval(() => {
+    if('speechSynthesis' in window && readerState.active){
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }
+  }, 9000);
+
+  readerLoop(level);
+}
+
+function stopReading(){
+  readerState.active = false;
+  readerState.level = null;
+  readerState.queue = [];
+  readerState.qi = 0;
+
+  if(readerState.keepAliveTimer){
+    clearInterval(readerState.keepAliveTimer);
+    readerState.keepAliveTimer = null;
+  }
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if(readerState.silentAudio) readerState.silentAudio.pause();
+  releaseWakeLockSafe();
+  clearMediaSession();
+
+  document.querySelectorAll('.read-btn').forEach(b => b.classList.remove('playing'));
+  const bar = document.getElementById('readerBar');
+  if(bar) bar.classList.add('hidden');
+}
+
+document.querySelectorAll('.read-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    startReading(btn.dataset.read);
+  });
+});
+document.getElementById('readerStopBtn').addEventListener('click', stopReading);
 
 // ---------- init ----------
 refreshHomeUI();

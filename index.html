@@ -6,29 +6,55 @@
 <title>Belajar Kata — Oxford 3000</title>
 <style>
   :root{
-    --bg1:#fef6e4;
-    --bg2:#e8f4ff;
-    --ink:#2b2440;
-    --ink-soft:#6b6280;
-    --card:#ffffff;
-    --a1:#ff9f68;
-    --a1-deep:#e8734a;
-    --a2:#5ec2a6;
-    --a2-deep:#2f9e83;
-    --b1:#6c8eef;
-    --b1-deep:#4568d9;
-    --b2:#c084f5;
-    --b2-deep:#9a4fd8;
-    --good:#22c37a;
-    --good-bg:#e2f9ee;
-    --bad:#ef5a5a;
-    --bad-bg:#fdeaea;
-    --remedial:#f5a524;
-    --remedial-deep:#c9860f;
-    --shadow: 0 8px 22px rgba(43,36,64,0.12);
+    /* Palet premium, minim silau — nyaman untuk mata sensitif/glaukoma */
+    --bg1:#f5efe2;
+    --bg2:#eaeff4;
+    --ink:#332f2a;
+    --ink-soft:#75705f;
+    --card:#fffcf5;
+    --surface-soft:#f1ecdd;
+    --border-soft:#e6ddc9;
+
+    --a1:#c9895e;
+    --a1-deep:#a56a41;
+    --a2:#4d9a83;
+    --a2-deep:#357764;
+    --b1:#5d78bd;
+    --b1-deep:#3f579d;
+    --b2:#8f68ad;
+    --b2-deep:#714f8d;
+
+    --gold:#c9a15c;
+    --gold-deep:#a67f3d;
+
+    --good:#3f9d6e;
+    --good-bg:#e6f3ec;
+    --bad:#c8594c;
+    --bad-bg:#fbeae6;
+    --remedial:#d9973f;
+    --remedial-deep:#af7527;
+    --remedial-soft:#e3ac5c;
+
+    --shadow: 0 6px 20px rgba(51,47,42,0.10);
     --vh: 1vh; /* set by JS for mobile address-bar accuracy */
   }
+  html[data-theme="comfort"]{
+    /* Mode nyaman: latar gelap hangat, minim cahaya biru, kontras lembut */
+    --bg1:#2a2823;
+    --bg2:#242320;
+    --ink:#ece6d6;
+    --ink-soft:#b2ac99;
+    --card:#332f28;
+    --surface-soft:#3c382f;
+    --border-soft:#4a4538;
+    --good-bg:#243a30;
+    --bad-bg:#3d2c28;
+    --shadow: 0 8px 22px rgba(0,0,0,0.4);
+  }
   *{box-sizing:border-box;}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
   html,body{
     margin:0;padding:0;
     height:100%;
@@ -37,14 +63,16 @@
   }
   body{
     font-family:'Poppins','Segoe UI',system-ui,-apple-system,sans-serif;
-    background:
-      radial-gradient(circle at 10% 10%, #fff7ea 0%, transparent 45%),
-      radial-gradient(circle at 90% 20%, #e8f4ff 0%, transparent 40%),
-      linear-gradient(160deg, #fffaf0 0%, #f2f7ff 100%);
+    background: linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
     color:var(--ink);
     -webkit-font-smoothing:antialiased;
     height: calc(var(--vh, 1vh) * 100);
     width:100vw;
+    transition: background .35s ease, color .35s ease;
+  }
+  .wrap, .icon-btn, .card, .level-card, .question-card, .flashcard, .stats-card,
+  .option, .seg, .seg button, .cefr-banner, .reader-bar{
+    transition: background .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease;
   }
   .wrap{
     height:100%;
@@ -73,12 +101,13 @@
     width: clamp(30px, 5.5vh, 40px);
     height: clamp(30px, 5.5vh, 40px);
     border-radius:12px;
-    background:linear-gradient(135deg,#ff9f68,#c084f5);
+    background:linear-gradient(135deg,var(--gold),var(--b1-deep));
     display:flex;align-items:center;justify-content:center;
     font-size: clamp(15px, 2.6vh, 20px);
     box-shadow:var(--shadow);
     flex-shrink:0;
   }
+  :focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
   .brand h1{
     font-size: clamp(14px, 2.3vh, 18px);
     margin:0;
@@ -108,6 +137,7 @@
     transition:transform .15s ease;
   }
   .icon-btn:active{transform:scale(0.92);}
+  .icon-btn.active-mode{background:linear-gradient(135deg,var(--gold),var(--gold-deep)); color:#fff;}
 
   .screen{
     flex:1;
@@ -160,7 +190,7 @@
     white-space:nowrap;
   }
   .seg button.active{
-    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    background:linear-gradient(135deg,var(--b1),var(--b2));
     color:#fff;
     box-shadow:0 4px 12px rgba(108,142,239,0.35);
   }
@@ -186,7 +216,7 @@
   }
   .remedial-btn:active{transform:scale(0.98);}
   .remedial-btn.empty{
-    background:#f3f0fb;
+    background:var(--surface-soft);
     color:var(--ink-soft);
     box-shadow:none;
     cursor:default;
@@ -197,7 +227,7 @@
     border-radius:100px;
     font-size:0.85em;
   }
-  .remedial-btn.empty .badge{background:rgba(43,36,64,0.08);}
+  .remedial-btn.empty .badge{background:rgba(51,47,42,0.08);}
 
   .level-grid{
     display:grid;
@@ -223,8 +253,35 @@
     flex-direction:column;
     justify-content:space-between;
     min-height:0;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+  }
+  .level-card::before{
+    content:'';
+    position:absolute; inset:0;
+    background:linear-gradient(160deg, rgba(255,255,255,0.18), rgba(255,255,255,0) 55%);
+    pointer-events:none;
   }
   .level-card:active{transform:scale(0.97);}
+  .read-btn{
+    position:absolute;
+    bottom:8px; right:8px;
+    width:30px; height:30px;
+    border:none;
+    border-radius:50%;
+    background:rgba(255,255,255,0.24);
+    color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px;
+    cursor:pointer;
+    z-index:3;
+    transition:transform .15s ease, background .15s ease, box-shadow .2s ease;
+  }
+  .read-btn:active{transform:scale(0.88);}
+  .read-btn.playing{
+    background:rgba(255,255,255,0.42);
+    box-shadow:0 0 0 4px rgba(255,255,255,0.22);
+  }
   .level-card.a1{background:linear-gradient(135deg,var(--a1),var(--a1-deep));}
   .level-card.a2{background:linear-gradient(135deg,var(--a2),var(--a2-deep));}
   .level-card.b1{background:linear-gradient(135deg,var(--b1),var(--b1-deep));}
@@ -288,7 +345,7 @@
   .level-chip.remedial-chip{background:var(--remedial-deep);}
 
   .progress-bar-outer{
-    background:#e9e5f5;
+    background:var(--border-soft);
     border-radius:100px;
     height:6px;
     overflow:hidden;
@@ -297,7 +354,7 @@
   }
   .progress-bar-inner{
     height:100%;
-    background:linear-gradient(90deg,#6c8eef,#c084f5);
+    background:linear-gradient(90deg,var(--b1),var(--b2));
     border-radius:100px;
     transition:width .3s ease;
     width:0%;
@@ -380,15 +437,15 @@
     align-items:center;
     gap:10px;
     background:var(--card);
-    border:2px solid #ece7f7;
+    border:2px solid var(--border-soft);
     border-radius:14px;
-    padding: 6px clamp(10px,2.5vw,16px);
+    padding: 7px clamp(10px,2.5vw,16px);
     text-align:left;
     cursor:pointer;
     font-family:inherit;
-    font-size: clamp(12.5px, 2vh, 15px);
+    font-size: clamp(13.5px, 2.1vh, 15.5px);
     color:var(--ink);
-    box-shadow:0 2px 6px rgba(43,36,64,0.04);
+    box-shadow:0 2px 6px rgba(51,47,42,0.05);
     transition:border-color .15s ease, background .15s ease, transform .1s ease;
   }
   .option:active{transform:scale(0.985);}
@@ -396,7 +453,7 @@
     width: clamp(20px,3.6vh,26px);
     height: clamp(20px,3.6vh,26px);
     border-radius:8px;
-    background:#f3f0fb;
+    background:var(--surface-soft);
     color:var(--ink-soft);
     display:flex;align-items:center;justify-content:center;
     font-weight:700;
@@ -437,7 +494,7 @@
     padding: clamp(9px, 1.8vh, 14px);
     border:none;
     border-radius:14px;
-    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    background:linear-gradient(135deg,var(--b1),var(--b2));
     color:#fff;
     font-weight:700;
     font-size: clamp(12.5px, 2vh, 15px);
@@ -448,6 +505,64 @@
   }
   .next-btn.show{display:block;}
   .next-btn:active{transform:scale(0.98);}
+
+  /* ---------- LATIH (skip ke latihan) ---------- */
+  .latih-btn{
+    flex-shrink:0;
+    width:100%;
+    margin-top: clamp(6px, 1.2vh, 10px);
+    padding: clamp(8px, 1.5vh, 11px);
+    border:2px dashed var(--remedial);
+    border-radius:14px;
+    background:transparent;
+    color:var(--remedial-deep);
+    font-weight:700;
+    font-family:inherit;
+    font-size: clamp(11.5px, 1.7vh, 13px);
+    cursor:pointer;
+  }
+  .latih-btn:active{transform:scale(0.98);}
+  .latih-btn.hidden{display:none;}
+
+  /* ---------- BACAKAN (floating reader bar) ---------- */
+  .reader-bar{
+    position:fixed;
+    left:50%;
+    transform:translateX(-50%);
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    width:calc(100% - 32px);
+    max-width:688px;
+    background:linear-gradient(135deg,var(--gold),var(--gold-deep));
+    color:#fff;
+    border-radius:18px;
+    padding:10px 10px 10px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    box-shadow:0 10px 26px rgba(166,127,61,0.4);
+    z-index:50;
+  }
+  .reader-bar.hidden{display:none;}
+  .reader-info{display:flex; align-items:center; gap:10px; min-width:0;}
+  .reader-icon{font-size:17px; flex-shrink:0; animation:readerPulse 1.6s ease-in-out infinite;}
+  @keyframes readerPulse{0%,100%{opacity:1;} 50%{opacity:0.5;}}
+  .reader-text{min-width:0;}
+  .reader-level{font-size:10px; opacity:0.85; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;}
+  .reader-word{font-size: clamp(12.5px,2vh,14.5px); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .reader-stop{
+    border:none;
+    background:rgba(255,255,255,0.25);
+    color:#fff;
+    padding:8px 13px;
+    border-radius:100px;
+    font-weight:700;
+    font-size:12px;
+    font-family:inherit;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .reader-stop:active{transform:scale(0.94);}
 
   /* ---------- REMEDIAL FLASHCARD ---------- */
   .flashcard-wrap{
@@ -470,7 +585,7 @@
     padding: clamp(12px, 2.4vh, 22px);
     text-align:center;
     cursor:pointer;
-    border:2px dashed #f0c46a;
+    border:2px dashed var(--remedial-soft);
   }
   .flash-label{
     font-size: clamp(9.5px, 1.4vh, 11.5px);
@@ -487,7 +602,7 @@
     font-size: clamp(16px, 3.2vh, 23px);
     font-weight:700;
     color:var(--remedial-deep);
-    border-top:2px dashed #f0c46a;
+    border-top:2px dashed var(--remedial-soft);
     padding-top: clamp(6px,1.4vh,12px);
     width:100%;
   }
@@ -500,7 +615,7 @@
     width: clamp(7px,1.3vh,9px);
     height: clamp(7px,1.3vh,9px);
     border-radius:50%;
-    background:#ece7f7;
+    background:var(--border-soft);
   }
   .streak-dots .dot.filled{background:var(--remedial);}
 
@@ -584,7 +699,7 @@
     display:flex;
     align-items:center;
     gap:12px;
-    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    background:linear-gradient(135deg,var(--b1),var(--b2));
     color:#fff;
     border-radius:16px;
     padding: clamp(10px,2vh,15px) 16px;
@@ -607,7 +722,7 @@
   }
   .level-progress-head .lvl-name{color:var(--ink-soft); font-weight:600; margin-left:6px;}
   .level-progress-bar-outer{
-    background:#e9e5f5;
+    background:var(--border-soft);
     border-radius:100px;
     height:8px;
     overflow:hidden;
@@ -655,12 +770,12 @@
   .result-actions{display:flex;flex-direction:column;gap:9px;}
   .btn-primary{
     padding: clamp(10px, 1.8vh, 14px);border:none;border-radius:14px;
-    background:linear-gradient(135deg,#6c8eef,#c084f5);
+    background:linear-gradient(135deg,var(--b1),var(--b2));
     color:#fff;font-weight:700;font-size: clamp(12.5px,2vh,15px);font-family:inherit;cursor:pointer;
   }
   .btn-secondary{
     padding: clamp(10px, 1.8vh, 14px);border:none;border-radius:14px;
-    background:#f3f0fb;color:var(--ink);font-weight:700;font-size: clamp(12.5px,2vh,15px);font-family:inherit;cursor:pointer;
+    background:var(--surface-soft);color:var(--ink);font-weight:700;font-size: clamp(12.5px,2vh,15px);font-family:inherit;cursor:pointer;
   }
 </style>
 </head>
@@ -676,6 +791,7 @@
       </div>
     </div>
     <div style="display:flex; gap:8px; flex-shrink:0;">
+      <button class="icon-btn" id="comfortBtn" title="Mode Nyaman Mata">🌙</button>
       <button class="icon-btn" id="progressBtn" title="Progres">📊</button>
       <button class="icon-btn" id="homeBtn" title="Beranda">🏠</button>
     </div>
@@ -701,38 +817,42 @@
     </button>
 
     <div class="level-grid">
-      <button class="level-card a1" data-level="A1">
+      <div class="level-card a1" data-level="A1" tabindex="0" role="button">
         <div class="blob"></div>
         <div class="donebadge hidden" data-done="A1">🏆</div>
+        <button class="read-btn" data-read="A1" title="Bacakan kata level A1">🔊</button>
         <div class="tag">A1</div>
         <div class="name">Pemula</div>
         <div class="count" data-count="A1">0/900 kata</div>
         <div class="subcount hidden" data-remedial="A1"></div>
-      </button>
-      <button class="level-card a2" data-level="A2">
+      </div>
+      <div class="level-card a2" data-level="A2" tabindex="0" role="button">
         <div class="blob"></div>
         <div class="donebadge hidden" data-done="A2">🏆</div>
+        <button class="read-btn" data-read="A2" title="Bacakan kata level A2">🔊</button>
         <div class="tag">A2</div>
         <div class="name">Dasar Lanjutan</div>
         <div class="count" data-count="A2">0/872 kata</div>
         <div class="subcount hidden" data-remedial="A2"></div>
-      </button>
-      <button class="level-card b1" data-level="B1">
+      </div>
+      <div class="level-card b1" data-level="B1" tabindex="0" role="button">
         <div class="blob"></div>
         <div class="donebadge hidden" data-done="B1">🏆</div>
+        <button class="read-btn" data-read="B1" title="Bacakan kata level B1">🔊</button>
         <div class="tag">B1</div>
         <div class="name">Menengah</div>
         <div class="count" data-count="B1">0/809 kata</div>
         <div class="subcount hidden" data-remedial="B1"></div>
-      </button>
-      <button class="level-card b2" data-level="B2">
+      </div>
+      <div class="level-card b2" data-level="B2" tabindex="0" role="button">
         <div class="blob"></div>
         <div class="donebadge hidden" data-done="B2">🏆</div>
+        <button class="read-btn" data-read="B2" title="Bacakan kata level B2">🔊</button>
         <div class="tag">B2</div>
         <div class="name">Menengah Atas</div>
         <div class="count" data-count="B2">0/727 kata</div>
         <div class="subcount hidden" data-remedial="B2"></div>
-      </button>
+      </div>
     </div>
   </section>
 
@@ -762,6 +882,7 @@
 
     <div class="options" id="optionsList"></div>
 
+    <button class="latih-btn" id="latihBtn">🧠 Belum Tahu — Latih Kata Ini</button>
     <div class="feedback-banner" id="feedbackBanner"></div>
     <button class="next-btn" id="nextBtn">Lanjut →</button>
   </section>
@@ -852,6 +973,17 @@
     </div>
   </section>
 
+</div>
+
+<div class="reader-bar hidden" id="readerBar">
+  <div class="reader-info">
+    <span class="reader-icon">🔊</span>
+    <div class="reader-text">
+      <div class="reader-level" id="readerLevel">A1 • Bacakan</div>
+      <div class="reader-word" id="readerWord">—</div>
+    </div>
+  </div>
+  <button class="reader-stop" id="readerStopBtn">⏹ Stop</button>
 </div>
 
 <script src="words_data.js"></script>
