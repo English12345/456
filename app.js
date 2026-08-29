@@ -38,7 +38,7 @@ let remedialState = {
   pool: [],         // [{level, word, streak}]
   index: 0,
   total: 0,         // jumlah kartu unik di awal sesi (untuk progress bar)
-  revealed: false
+  answered: false
 };
 
 // ---------- progress storage ----------
@@ -604,13 +604,13 @@ function finishQuiz(){
   showScreen('result');
 }
 
-// ---------- remedial flow (flashcard) ----------
+// ---------- remedial flow (flashcard, dengan jawaban diketik & dinilai otomatis) ----------
 function startRemedial(){
   stopReading();
   remedialState.pool = shuffle(buildRemedialPool());
   remedialState.total = remedialState.pool.length;
   remedialState.index = 0;
-  remedialState.revealed = false;
+  remedialState.answered = false;
 
   if(remedialState.pool.length === 0){
     showScreen('home');
@@ -638,8 +638,21 @@ function renderStreakDots(streak){
   }
 }
 
+// Menormalkan teks sebelum dibandingkan: huruf kecil, tanpa spasi berlebih,
+// tanpa tanda baca, tanpa diakritik — supaya penilaian tidak terlalu kaku
+// (mis. "Apple" / "apple " / "apple." semua dianggap sama).
+function normalizeAnswer(str){
+  return (str || '')
+    .toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function renderFlashcard(){
-  remedialState.revealed = false;
+  remedialState.answered = false;
   const item = remedialState.pool[remedialState.index];
   const isIdToEn = state.direction === 'id-en';
   const word = item.word;
@@ -652,15 +665,15 @@ function renderFlashcard(){
   chip.className = 'level-chip remedial-chip';
 
   document.getElementById('flashLabel').textContent = isIdToEn
-    ? 'Apa Bahasa Inggrisnya?'
-    : 'Apa artinya dalam Bahasa Indonesia?';
+    ? 'Ketik Bahasa Inggrisnya:'
+    : 'Ketik artinya dalam Bahasa Indonesia:';
   document.getElementById('flashWord').textContent = questionText;
   document.getElementById('remStreak').textContent = item.streak;
 
   const speakBtn = document.getElementById('flashSpeak');
   speakBtn.style.display = isIdToEn ? 'none' : 'flex';
   speakBtn.onclick = (e) => {
-    e.stopPropagation(); // jangan sampai membuka jawaban saat cuma mau dengar ucapan
+    e.stopPropagation();
     speak(word.en, 'en-US');
   };
 
@@ -670,41 +683,95 @@ function renderFlashcard(){
 
   renderStreakDots(item.streak);
 
-  document.getElementById('revealBtn').classList.remove('hidden');
-  document.getElementById('remedialActions').classList.add('hidden');
+  const input = document.getElementById('remedialInput');
+  input.value = '';
+  input.disabled = false;
+  input.classList.remove('correct', 'wrong');
+  input.placeholder = isIdToEn ? 'Ketik dalam Bahasa Inggris…' : 'Ketik dalam Bahasa Indonesia…';
+
+  document.getElementById('remedialFeedback').className = 'feedback-banner';
+  document.getElementById('remedialFeedback').textContent = '';
+  document.getElementById('checkAnswerBtn').classList.remove('hidden');
+  document.getElementById('giveUpBtn').classList.remove('hidden');
+  document.getElementById('remedialNextBtn').classList.remove('show');
 
   updateRemedialProgress();
+
+  // fokuskan input supaya keyboard langsung siap dipakai (khususnya di HP)
+  setTimeout(() => { try{ input.focus(); }catch(e){} }, 50);
 }
 
-function revealAnswer(){
-  if(remedialState.revealed) return;
-  remedialState.revealed = true;
+function checkRemedialAnswer(forceEmpty){
+  if(remedialState.answered) return;
+  remedialState.answered = true;
+
   const item = remedialState.pool[remedialState.index];
+  const isIdToEn = state.direction === 'id-en';
+  const word = item.word;
+  const correctAnswer = isIdToEn ? word.en : word.id;
+
+  const input = document.getElementById('remedialInput');
+  const typed = forceEmpty ? '' : input.value;
+  if(forceEmpty) input.value = '';
+
+  const typedNorm = normalizeAnswer(typed);
+  const correct = typedNorm.length > 0 && typedNorm === normalizeAnswer(correctAnswer);
+
+  input.disabled = true;
+  input.classList.remove('correct', 'wrong');
+  input.classList.add(correct ? 'correct' : 'wrong');
+
   document.getElementById('flashAnswer').classList.remove('hidden');
-  speak(item.word.en, 'en-US');
-  document.getElementById('revealBtn').classList.add('hidden');
-  document.getElementById('remedialActions').classList.remove('hidden');
-}
 
-document.getElementById('flashcard').addEventListener('click', revealAnswer);
-document.getElementById('revealBtn').addEventListener('click', revealAnswer);
+  const feedback = document.getElementById('remedialFeedback');
+  if(correct){
+    feedback.className = 'feedback-banner show good';
+    feedback.textContent = '✅ Benar! Mantap!';
+  }else{
+    feedback.className = 'feedback-banner show bad';
+    feedback.textContent = typed.trim()
+      ? `❌ Kurang tepat. Jawaban benar: ${correctAnswer}`
+      : `Jawaban benar: ${correctAnswer}`;
+  }
 
-document.getElementById('remedialCorrectBtn').addEventListener('click', () => {
-  const item = remedialState.pool[remedialState.index];
-  const newStreak = (item.streak || 0) + 1;
-  if(newStreak >= MASTERY_STREAK){
+  // tetap ada suaranya: bacakan pengucapan kata Bahasa Inggris setelah dinilai
+  speak(word.en, 'en-US');
+
+  const newStreak = correct ? (item.streak || 0) + 1 : 0;
+  if(correct && newStreak >= MASTERY_STREAK){
     markMastered(item.level, item.word.en);
   }else{
     markRemedial(item.level, item.word.en, newStreak);
   }
-  recordAttempt(item.level, true);
-  advanceRemedial();
+  recordAttempt(item.level, correct);
+  renderStreakDots(newStreak);
+  document.getElementById('remStreak').textContent = newStreak;
+
+  document.getElementById('checkAnswerBtn').classList.add('hidden');
+  document.getElementById('giveUpBtn').classList.add('hidden');
+  document.getElementById('remedialNextBtn').classList.add('show');
+}
+
+document.getElementById('checkAnswerBtn').addEventListener('click', () => checkRemedialAnswer(false));
+document.getElementById('giveUpBtn').addEventListener('click', () => checkRemedialAnswer(true));
+
+document.getElementById('remedialInput').addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  if(!remedialState.answered){
+    checkRemedialAnswer(false);
+  }else{
+    document.getElementById('remedialNextBtn').click();
+  }
 });
 
-document.getElementById('remedialWrongBtn').addEventListener('click', () => {
-  const item = remedialState.pool[remedialState.index];
-  markRemedial(item.level, item.word.en, 0);
-  recordAttempt(item.level, false);
+document.getElementById('flashcard').addEventListener('click', () => {
+  if(!remedialState.answered){
+    document.getElementById('remedialInput').focus();
+  }
+});
+
+document.getElementById('remedialNextBtn').addEventListener('click', () => {
   advanceRemedial();
 });
 

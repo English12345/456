@@ -619,43 +619,74 @@
   }
   .streak-dots .dot.filled{background:var(--remedial);}
 
-  .reveal-btn{
+  .remedial-input-row{
     flex-shrink:0;
-    width:100%;
     margin-top: clamp(8px,1.6vh,14px);
-    padding: clamp(10px, 1.8vh, 14px);
+  }
+  .remedial-input{
+    width:100%;
+    padding: clamp(11px,2vh,15px) 16px;
+    border-radius:14px;
+    border:2px solid var(--border-soft);
+    background:var(--card);
+    color:var(--ink);
+    font-family:inherit;
+    font-size: clamp(14.5px,2.3vh,17px);
+    font-weight:700;
+    text-align:center;
+    outline:none;
+    box-shadow:var(--shadow);
+  }
+  .remedial-input:focus{border-color:var(--b1);}
+  .remedial-input:disabled{opacity:0.9;}
+  .remedial-input.correct{border-color:var(--good); background:var(--good-bg); color:var(--good);}
+  .remedial-input.wrong{border-color:var(--bad); background:var(--bad-bg); color:var(--bad);}
+  .remedial-input::placeholder{color:var(--ink-soft); font-weight:500;}
+
+  .remedial-btn-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    flex-shrink:0;
+    margin-top: clamp(6px,1.2vh,10px);
+  }
+  .check-btn{
+    flex:2;
+    min-width:0;
     border:none;
     border-radius:14px;
-    background:linear-gradient(135deg,var(--remedial),var(--remedial-deep));
+    padding: clamp(10px, 1.8vh, 14px);
+    background:linear-gradient(135deg,var(--b1),var(--b2));
     color:#fff;
     font-weight:700;
-    font-size: clamp(12.5px, 2vh, 15px);
     font-family:inherit;
+    font-size: clamp(12.5px, 2vh, 15px);
     cursor:pointer;
-    box-shadow:0 6px 14px rgba(201,134,15,0.3);
+    box-shadow:0 6px 14px rgba(93,120,189,0.3);
   }
-  .reveal-btn:active{transform:scale(0.98);}
+  .check-btn:active{transform:scale(0.98);}
+  .check-btn.hidden{display:none;}
 
-  .remedial-actions{
-    flex-shrink:0;
-    display:flex;
-    gap:10px;
-    margin-top: clamp(8px,1.6vh,14px);
-  }
-  .remedial-actions.hidden{display:none;}
-  .remedial-actions button{
+  .giveup-btn{
     flex:1;
+    min-width:0;
     border:none;
     border-radius:14px;
-    padding: clamp(10px, 1.8vh, 14px);
-    font-weight:700;
+    padding: clamp(10px, 1.8vh, 14px) 8px;
+    background:var(--surface-soft);
+    color:var(--ink-soft);
+    font-weight:600;
     font-family:inherit;
-    font-size: clamp(12px, 1.9vh, 14.5px);
+    font-size: clamp(10px, 1.5vh, 11.5px);
     cursor:pointer;
   }
-  .btn-wrong{background:var(--bad-bg); color:var(--bad);}
-  .btn-correct{background:var(--good-bg); color:var(--good);}
-  .remedial-actions button:active{transform:scale(0.97);}
+  .giveup-btn:active{transform:scale(0.97);}
+  .giveup-btn.hidden{display:none;}
+
+  .remedial-btn-row .next-btn{
+    flex:1 1 100%;
+    margin-top:0;
+  }
 
   /* ---------- PROGRESS DASHBOARD ---------- */
   .progress-screen{
@@ -902,7 +933,7 @@
 
     <div class="flashcard-wrap">
       <div class="flashcard" id="flashcard">
-        <div class="flash-label" id="flashLabel">Coba ingat artinya</div>
+        <div class="flash-label" id="flashLabel">Ketik artinya:</div>
         <div class="question-word-row">
           <div class="flash-word" id="flashWord">word</div>
           <button class="speak-btn small" id="flashSpeak" title="Dengarkan">
@@ -914,10 +945,16 @@
       </div>
     </div>
 
-    <button class="reveal-btn" id="revealBtn">👁️ Lihat Jawaban</button>
-    <div class="remedial-actions hidden" id="remedialActions">
-      <button class="btn-wrong" id="remedialWrongBtn">❌ Masih Salah</button>
-      <button class="btn-correct" id="remedialCorrectBtn">✅ Sudah Benar</button>
+    <div class="remedial-input-row">
+      <input type="text" class="remedial-input" id="remedialInput"
+        placeholder="Ketik jawabannya di sini…"
+        autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    </div>
+    <div class="feedback-banner" id="remedialFeedback"></div>
+    <div class="remedial-btn-row">
+      <button class="check-btn" id="checkAnswerBtn">✓ Cek Jawaban</button>
+      <button class="giveup-btn" id="giveUpBtn">Tidak tahu, lewati</button>
+      <button class="next-btn" id="remedialNextBtn">Lanjut →</button>
     </div>
   </section>
 
