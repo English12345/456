@@ -224,6 +224,7 @@ const screens = {
   quiz: document.getElementById('quizScreen'),
   remedial: document.getElementById('remedialScreen'),
   novel: document.getElementById('novelScreen'),
+  novelReader: document.getElementById('novelReaderScreen'),
   progress: document.getElementById('progressScreen'),
   result: document.getElementById('resultScreen')
 };
@@ -902,15 +903,61 @@ function updateReaderBarUI(word){
   if(el) el.textContent = text;
 }
 
+// Web Speech API di banyak browser (terutama Chrome/Android) punya bug lama:
+// kadang speechSynthesis "macet" — utterance tidak pernah memicu onend/onerror,
+// sehingga suara jadi diam total dan proses menunggu (await) tidak pernah lanjut.
+// speakAsync() dibuat tahan terhadap ini dengan:
+// 1) watchdog timeout — kalau lebih lama dari perkiraan wajar tanpa onend/onerror,
+//    paksa reset & lanjut, supaya pembacaan tidak macet selamanya.
+// 2) retry sekali — kalau speak() dipanggil tapi browser diam-diam tidak mulai
+//    bicara sama sekali, coba panggil ulang sekali.
 function speakAsync(text, lang){
   return new Promise((resolve) => {
-    if(!('speechSynthesis' in window)){ resolve(); return; }
+    const synth = window.speechSynthesis;
+    if(!synth || !text){ resolve(); return; }
+
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = lang;
     utter.rate = 0.9;
-    utter.onend = resolve;
-    utter.onerror = resolve;
-    window.speechSynthesis.speak(utter);
+
+    let done = false;
+    let retried = false;
+    let watchdogTimer = null;
+    let retryTimer = null;
+
+    const finish = () => {
+      if(done) return;
+      done = true;
+      if(watchdogTimer) clearTimeout(watchdogTimer);
+      if(retryTimer) clearTimeout(retryTimer);
+      resolve();
+    };
+
+    utter.onend = finish;
+    utter.onerror = finish;
+
+    // perkiraan lama bicara (~90ms/karakter), dengan batas bawah & atas yang wajar
+    const estMs = Math.min(Math.max(text.length * 90, 1200), 15000);
+    watchdogTimer = setTimeout(() => {
+      try{ synth.cancel(); }catch(e){/* abaikan */}
+      finish();
+    }, estMs);
+
+    try{
+      synth.speak(utter);
+    }catch(e){
+      finish();
+      return;
+    }
+
+    // kalau setelah sesaat browser tidak kunjung mulai bicara sama sekali
+    // (kemungkinan panggilan speak() diabaikan diam-diam), coba sekali lagi
+    retryTimer = setTimeout(() => {
+      if(!done && !retried && !synth.speaking && !synth.pending){
+        retried = true;
+        try{ synth.speak(utter); }catch(e){/* abaikan */}
+      }
+    }, 350);
   });
 }
 
@@ -957,9 +1004,14 @@ async function startReading(level){
   setupMediaSession(level);
   await requestWakeLockSafe();
 
+  // reset paksa kalau ada antrean lama yang macet sebelum sesi baru dimulai
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+
   if(readerState.keepAliveTimer) clearInterval(readerState.keepAliveTimer);
   readerState.keepAliveTimer = setInterval(() => {
-    if('speechSynthesis' in window && readerState.active){
+    // hanya "colek" (pause+resume) kalau memang sedang aktif bicara — memanggil
+    // ini saat idle justru berisiko membuat mesin suara macet di beberapa browser
+    if('speechSynthesis' in window && readerState.active && window.speechSynthesis.speaking){
       window.speechSynthesis.pause();
       window.speechSynthesis.resume();
     }
@@ -996,23 +1048,26 @@ document.querySelectorAll('.read-btn').forEach(btn => {
 });
 document.getElementById('readerStopBtn').addEventListener('click', stopReading);
 
-// ---------- Novel Reader: PDF novel ditampilkan seperti buku (bisa dibalik & dibacakan) ----------
-// Halaman PDF dirender ke gambar lewat PDF.js, ditampilkan dengan animasi "membalik halaman"
-// (flip 3D) di atas panggung buku bernuansa krem hangat (ramah mata/glaukoma, minim silau).
-// File PDF yang diunggah disimpan di IndexedDB supaya tidak perlu unggah ulang tiap buka app.
+// ---------- Novel Reader: perpustakaan PDF + mode baca immersive (teks reflow) ----------
+// PDF novel diekstrak teksnya (bukan sekadar difoto per halaman), lalu ditata ulang
+// (reflow) menjadi halaman-halaman virtual yang pas dengan layar — supaya tulisan besar,
+// lega, dan warna latar bisa dibuat coklat hangat ala buku sungguhan (ramah mata/glaukoma),
+// bukan terikat pada gambar PDF yang putih terang. File PDF & posisi baca terakhir
+// disimpan (IndexedDB + localStorage) sehingga novel tidak hilang dan bisa dilanjutkan.
 const NOVEL_DB_NAME = 'belajarKataNovelDB';
 const NOVEL_DB_STORE = 'pdfs';
-const NOVEL_BOOKMARK_KEY = 'belajarKata_novel_bookmarks_v1';
+const NOVEL_PROGRESS_KEY = 'belajarKata_novel_progress_v1';
 
 let bookState = {
   pdf: null,
   numPages: 0,
-  currentPage: 1,
-  pageCache: {},   // pageNum -> dataURL gambar halaman
-  textCache: {},   // pageNum -> teks halaman (untuk dibacakan)
   title: '',
   fileId: null,
-  flipping: false
+  paragraphs: [],     // [{text, sourcePage}] — seluruh teks novel, sudah dipecah per paragraf
+  pages: [],           // hasil reflow: array of array-of-paragraph (halaman virtual)
+  currentPageIdx: 0,
+  transitioning: false,
+  ready: false
 };
 
 let novelReaderState = {
@@ -1020,8 +1075,9 @@ let novelReaderState = {
   keepAliveTimer: null
 };
 
-let novelAutoLoadAttempted = false;
+let novelLibraryCache = []; // cache daftar novel dari IndexedDB, untuk render & delete cepat
 
+// ---------- IndexedDB: simpan file PDF supaya tidak hilang ----------
 function openNovelDB(){
   return new Promise((resolve, reject) => {
     if(!('indexedDB' in window)){ reject(new Error('IndexedDB tidak didukung')); return; }
@@ -1046,196 +1102,328 @@ async function saveNovelToDB(file, id, title){
   }catch(e){ return false; }
 }
 
-async function loadLastNovelFromDB(){
+async function loadAllNovelsFromDB(){
   try{
     const db = await openNovelDB();
     return await new Promise((resolve) => {
       const tx = db.transaction(NOVEL_DB_STORE, 'readonly');
       const req = tx.objectStore(NOVEL_DB_STORE).getAll();
-      req.onsuccess = () => {
-        const all = req.result || [];
-        if(!all.length){ resolve(null); return; }
-        all.sort((a, b) => b.savedAt - a.savedAt);
-        resolve(all[0]);
-      };
-      req.onerror = () => resolve(null);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
     });
-  }catch(e){ return null; }
+  }catch(e){ return []; }
+}
+
+async function deleteNovelFromDB(id){
+  try{
+    const db = await openNovelDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(NOVEL_DB_STORE, 'readwrite');
+      tx.objectStore(NOVEL_DB_STORE).delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  }catch(e){ return false; }
 }
 
 async function hashFile(file){
   return `${file.name}_${file.size}_${file.lastModified}`;
 }
 
-function loadNovelBookmarkPage(fileId){
+// ---------- progres baca (localStorage, ringan & cepat) ----------
+function loadAllNovelProgress(){
   try{
-    const raw = localStorage.getItem(NOVEL_BOOKMARK_KEY);
-    const all = raw ? JSON.parse(raw) : {};
-    return all[fileId] || null;
-  }catch(e){ return null; }
+    const raw = localStorage.getItem(NOVEL_PROGRESS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
 }
-
-function saveNovelBookmark(){
+function getNovelProgress(fileId){
+  return loadAllNovelProgress()[fileId] || null;
+}
+function saveNovelProgress(){
+  if(!bookState.fileId) return;
   try{
-    const raw = localStorage.getItem(NOVEL_BOOKMARK_KEY);
-    const all = raw ? JSON.parse(raw) : {};
-    all[bookState.fileId] = bookState.currentPage;
-    localStorage.setItem(NOVEL_BOOKMARK_KEY, JSON.stringify(all));
+    const all = loadAllNovelProgress();
+    const firstPara = bookState.pages[bookState.currentPageIdx] && bookState.pages[bookState.currentPageIdx][0];
+    all[bookState.fileId] = {
+      paraGlobalIndex: firstPara ? firstPara.globalIndex : 0,
+      currentPageIdx: bookState.currentPageIdx,
+      totalPages: bookState.pages.length,
+      progressPct: bookState.pages.length > 1
+        ? Math.round((bookState.currentPageIdx / (bookState.pages.length - 1)) * 100)
+        : 100,
+      updatedAt: Date.now()
+    };
+    localStorage.setItem(NOVEL_PROGRESS_KEY, JSON.stringify(all));
+  }catch(e){/* abaikan */}
+}
+function deleteNovelProgress(fileId){
+  try{
+    const all = loadAllNovelProgress();
+    delete all[fileId];
+    localStorage.setItem(NOVEL_PROGRESS_KEY, JSON.stringify(all));
   }catch(e){/* abaikan */}
 }
 
-// ---------- render halaman PDF ke gambar ----------
-async function renderPdfPageToDataUrl(pageNum, maxWidth, maxHeight){
-  if(bookState.pageCache[pageNum]) return bookState.pageCache[pageNum];
-  const page = await bookState.pdf.getPage(pageNum);
-  const viewport1 = page.getViewport({ scale: 1 });
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const scale = Math.min(maxWidth / viewport1.width, maxHeight / viewport1.height) * dpr;
-  const viewport = page.getViewport({ scale: Math.max(scale, 0.3) });
-
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.ceil(viewport.width);
-  canvas.height = Math.ceil(viewport.height);
-  const ctx = canvas.getContext('2d');
-
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-  bookState.pageCache[pageNum] = dataUrl;
-  return dataUrl;
+function timeAgo(ts){
+  if(!ts) return '';
+  const diffMs = Date.now() - ts;
+  const min = Math.floor(diffMs / 60000);
+  if(min < 1) return 'baru saja';
+  if(min < 60) return `${min} menit lalu`;
+  const hr = Math.floor(min / 60);
+  if(hr < 24) return `${hr} jam lalu`;
+  const day = Math.floor(hr / 24);
+  if(day < 30) return `${day} hari lalu`;
+  const month = Math.floor(day / 30);
+  return `${month} bulan lalu`;
 }
 
-async function getPageText(pageNum){
-  if(bookState.textCache[pageNum] !== undefined) return bookState.textCache[pageNum];
-  const page = await bookState.pdf.getPage(pageNum);
+// ---------- ekstraksi teks PDF & pemecahan jadi paragraf ----------
+async function extractPageParagraphs(pdf, pageNum){
+  const page = await pdf.getPage(pageNum);
   const content = await page.getTextContent();
-  const text = content.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
-  bookState.textCache[pageNum] = text;
-  return text;
-}
+  const items = content.items.filter(it => it.str !== undefined && it.str !== '');
+  if(items.length === 0) return [];
 
-function prefetchNeighbors(){
-  const stage = document.getElementById('book');
-  const maxW = stage.clientWidth || 380;
-  const maxH = stage.clientHeight || 560;
-  [bookState.currentPage - 1, bookState.currentPage + 1].forEach(n => {
-    if(n >= 1 && n <= bookState.numPages && !bookState.pageCache[n]){
-      renderPdfPageToDataUrl(n, maxW, maxH).catch(() => {});
-    }
-  });
-}
-
-function updateNovelUI(){
-  document.getElementById('novelPageInfo').textContent =
-    `Halaman ${bookState.currentPage} dari ${bookState.numPages}`;
-  document.getElementById('bookPageLabel').textContent =
-    `${bookState.currentPage} / ${bookState.numPages}`;
-  const pct = bookState.numPages > 1
-    ? ((bookState.currentPage - 1) / (bookState.numPages - 1)) * 100
-    : 100;
-  document.getElementById('bookProgressFill').style.width = pct + '%';
-  document.getElementById('prevPageBtn').disabled = bookState.currentPage <= 1;
-  document.getElementById('nextPageBtn').disabled = bookState.currentPage >= bookState.numPages;
-}
-
-// ---------- animasi membalik halaman ----------
-async function showNovelPage(targetPage, direction){
-  if(bookState.flipping || !bookState.pdf) return;
-  targetPage = Math.min(Math.max(targetPage, 1), bookState.numPages);
-  if(targetPage === bookState.currentPage && direction) return;
-
-  const stage = document.getElementById('book');
-  const maxW = stage.clientWidth || 380;
-  const maxH = stage.clientHeight || 560;
-  const targetUrl = await renderPdfPageToDataUrl(targetPage, maxW, maxH);
-
-  if(!direction){
-    document.getElementById('pageBehind').src = targetUrl;
-    document.getElementById('flipFaceFront').querySelector('img').src = targetUrl;
-    bookState.currentPage = targetPage;
-    updateNovelUI();
-    prefetchNeighbors();
-    saveNovelBookmark();
-    return;
+  // lintasan pertama: kumpulkan semua jarak-y antar baris berurutan, untuk
+  // menebak jarak antar-baris "normal" (nilai yang paling sering muncul di
+  // halaman ini) — supaya batas paragraf terdeteksi relatif terhadap gaya
+  // baris PDF tersebut, bukan angka tetap yang belum tentu cocok semua PDF.
+  const gapCounts = {};
+  for(let i = 1; i < items.length; i++){
+    const y0 = items[i - 1].transform ? items[i - 1].transform[5] : null;
+    const y1 = items[i].transform ? items[i].transform[5] : null;
+    if(y0 === null || y1 === null) continue;
+    const g = Math.round(Math.abs(y0 - y1));
+    if(g > 1) gapCounts[g] = (gapCounts[g] || 0) + 1;
+  }
+  let typicalGap = 14;
+  let bestCount = 0;
+  for(const g in gapCounts){
+    if(gapCounts[g] > bestCount){ bestCount = gapCounts[g]; typicalGap = Number(g); }
   }
 
-  const leaf = document.getElementById('flipLeaf');
-  const faceFront = document.getElementById('flipFaceFront').querySelector('img');
-  const faceBack = document.getElementById('flipFaceBack').querySelector('img');
-  const behind = document.getElementById('pageBehind');
-
-  const currentUrl = await renderPdfPageToDataUrl(bookState.currentPage, maxW, maxH);
-  faceFront.src = currentUrl;
-  faceBack.src = targetUrl;
-  behind.src = targetUrl;
-
-  bookState.flipping = true;
-  leaf.style.transition = 'none';
-  leaf.classList.toggle('flipping-back', direction === 'prev');
-  leaf.style.transform = 'rotateY(0deg)';
-  void leaf.offsetWidth; // paksa reflow sebelum transisi berikutnya
-  leaf.style.transition = '';
-
-  const endDeg = direction === 'next' ? -180 : 180;
-
-  await new Promise((resolve) => {
-    requestAnimationFrame(() => { leaf.style.transform = `rotateY(${endDeg}deg)`; });
-    const onEnd = () => {
-      leaf.removeEventListener('transitionend', onEnd);
-      resolve();
-    };
-    leaf.addEventListener('transitionend', onEnd);
-    // jaring pengaman kalau transitionend tidak terpicu (browser tertentu / tab background)
-    setTimeout(resolve, 900);
-  });
-
-  leaf.style.transition = 'none';
-  leaf.style.transform = 'rotateY(0deg)';
-  void leaf.offsetWidth;
-  leaf.style.transition = '';
-  // wajah depan harus disamakan dengan halaman yang baru, supaya saat leaf
-  // kembali ke posisi datar (0deg) tampilannya tetap konsisten dengan
-  // halaman "behind" di baliknya, bukan kembali ke halaman lama.
-  faceFront.src = targetUrl;
-
-  bookState.currentPage = targetPage;
-  bookState.flipping = false;
-  updateNovelUI();
-  prefetchNeighbors();
-  saveNovelBookmark();
+  // lintasan kedua: susun paragraf — jarak jauh lebih besar dari jarak baris
+  // normal dianggap batas paragraf baru, jarak sekitar normal dianggap masih
+  // baris lanjutan dari paragraf yang sama (disambung dengan spasi).
+  const paragraphs = [];
+  let current = '';
+  let prevY = null;
+  for(const it of items){
+    const y = it.transform ? it.transform[5] : null;
+    if(prevY !== null && y !== null){
+      const gap = Math.abs(prevY - y);
+      if(gap > typicalGap * 1.6){
+        if(current.trim()) paragraphs.push(current.trim());
+        current = '';
+      }else if(gap > 1 && current && !/\s$/.test(current)){
+        current += ' ';
+      }
+    }
+    current += it.str;
+    prevY = y;
+  }
+  if(current.trim()) paragraphs.push(current.trim());
+  return paragraphs.map(text => ({ text, sourcePage: pageNum }));
 }
 
-function goNovelNext(){ showNovelPage(bookState.currentPage + 1, 'next'); }
-function goNovelPrev(){ showNovelPage(bookState.currentPage - 1, 'prev'); }
+async function extractAllParagraphs(pdf, onProgress){
+  const all = [];
+  for(let p = 1; p <= pdf.numPages; p++){
+    const paras = await extractPageParagraphs(pdf, p);
+    all.push(...paras);
+    if(onProgress) onProgress(p, pdf.numPages);
+  }
+  all.forEach((para, idx) => { para.globalIndex = idx; });
+  return all;
+}
 
-document.getElementById('prevPageBtn').addEventListener('click', goNovelPrev);
-document.getElementById('nextPageBtn').addEventListener('click', goNovelNext);
-document.getElementById('bookTapPrev').addEventListener('click', goNovelPrev);
-document.getElementById('bookTapNext').addEventListener('click', goNovelNext);
+// ---------- reflow: menata paragraf jadi halaman virtual yang pas layar ----------
+function fitsInMeasure(html){
+  const measureEl = document.getElementById('readerMeasure');
+  measureEl.innerHTML = html;
+  return measureEl.scrollHeight <= measureEl.clientHeight + 1;
+}
+function paragraphsToHtml(paras){
+  return paras.map(p => `<p>${escapeHtml(p.text)}</p>`).join('');
+}
+function splitParagraphIntoFittingChunks(para){
+  const words = para.text.split(/\s+/).filter(Boolean);
+  if(words.length === 0) return [para];
+  const chunks = [];
+  let start = 0;
+  while(start < words.length){
+    let lo = start + 1, hi = words.length, best = start + 1;
+    while(lo <= hi){
+      const mid = Math.floor((lo + hi) / 2);
+      const candidate = words.slice(start, mid).join(' ');
+      if(fitsInMeasure(`<p>${escapeHtml(candidate)}</p>`)){
+        best = mid;
+        lo = mid + 1;
+      }else{
+        hi = mid - 1;
+      }
+    }
+    chunks.push({ text: words.slice(start, best).join(' '), sourcePage: para.sourcePage, globalIndex: para.globalIndex });
+    start = best;
+  }
+  return chunks;
+}
 
-// geser jari (swipe) untuk membalik halaman, seperti buku sungguhan
-(function setupNovelSwipe(){
-  let touchStartX = null;
-  const book = document.getElementById('book');
-  book.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
+function buildPagination(){
+  const pages = [];
+  let current = [];
+  const paras = bookState.paragraphs;
+
+  for(let i = 0; i < paras.length; i++){
+    const para = paras[i];
+    if(current.length === 0 && !fitsInMeasure(`<p>${escapeHtml(para.text)}</p>`)){
+      const chunks = splitParagraphIntoFittingChunks(para);
+      chunks.forEach((chunk, ci) => {
+        if(ci < chunks.length - 1){
+          pages.push([chunk]);
+        }else{
+          current = [chunk];
+        }
+      });
+      continue;
+    }
+    const testHtml = paragraphsToHtml(current.concat([para]));
+    if(fitsInMeasure(testHtml) || current.length === 0){
+      current.push(para);
+    }else{
+      pages.push(current);
+      current = [para];
+    }
+  }
+  if(current.length) pages.push(current);
+  bookState.pages = pages.length ? pages : [[{ text: '(Novel ini tidak memiliki teks yang bisa ditampilkan — kemungkinan berupa hasil pindai/gambar.)', sourcePage: 1, globalIndex: 0 }]];
+}
+
+// ---------- render & navigasi halaman baca ----------
+function renderReaderPageContent(idx){
+  const contentEl = document.getElementById('readerPageContent');
+  contentEl.innerHTML = paragraphsToHtml(bookState.pages[idx] || []);
+  contentEl.scrollTop = 0;
+}
+
+function updateReaderUI(){
+  const total = bookState.pages.length;
+  const idx = bookState.currentPageIdx;
+  document.getElementById('readerOverlayTitle').textContent = bookState.title || 'Novel';
+  document.getElementById('readerPageLabel').textContent = `${idx + 1} / ${total}`;
+  const pct = total > 1 ? (idx / (total - 1)) * 100 : 100;
+  document.getElementById('readerProgressFill').style.width = pct + '%';
+}
+
+function waitFrame(){
+  return new Promise(r => requestAnimationFrame(r));
+}
+
+async function goReaderPage(newIdx, direction){
+  if(bookState.transitioning) return;
+  if(newIdx < 0 || newIdx >= bookState.pages.length) return;
+  bookState.transitioning = true;
+
+  const contentEl = document.getElementById('readerPageContent');
+  const outClass = direction === 'next' ? 'slide-out-left' : 'slide-out-right';
+  const inClass = direction === 'next' ? 'slide-in-right' : 'slide-in-left';
+
+  contentEl.classList.add(outClass);
+  await new Promise(resolve => setTimeout(resolve, 230));
+
+  bookState.currentPageIdx = newIdx;
+  renderReaderPageContent(newIdx);
+
+  contentEl.classList.remove(outClass);
+  contentEl.classList.add(inClass);
+  void contentEl.offsetWidth;
+  await waitFrame();
+  contentEl.classList.remove(inClass);
+
+  await new Promise(resolve => setTimeout(resolve, 260));
+  bookState.transitioning = false;
+
+  updateReaderUI();
+  saveNovelProgress();
+}
+
+function goReaderNext(){ goReaderPage(bookState.currentPageIdx + 1, 'next'); }
+function goReaderPrev(){ goReaderPage(bookState.currentPageIdx - 1, 'prev'); }
+
+// ---------- overlay minimal (muncul sebentar saat area tengah disentuh) ----------
+let readerOverlayTimer = null;
+function showReaderOverlay(){
+  document.getElementById('readerOverlay').classList.remove('hidden');
+  if(readerOverlayTimer) clearTimeout(readerOverlayTimer);
+  readerOverlayTimer = setTimeout(hideReaderOverlay, 3800);
+}
+function hideReaderOverlay(){
+  document.getElementById('readerOverlay').classList.add('hidden');
+  if(readerOverlayTimer){ clearTimeout(readerOverlayTimer); readerOverlayTimer = null; }
+}
+function toggleReaderOverlay(){
+  const el = document.getElementById('readerOverlay');
+  if(el.classList.contains('hidden')) showReaderOverlay(); else hideReaderOverlay();
+}
+
+// ---------- gerakan sentuh: geser/tap untuk balik halaman, seperti buku ----------
+(function setupReaderGestures(){
+  const pageEl = document.getElementById('readerPage');
+  let startX = null, startY = null, moved = false;
+
+  pageEl.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY; moved = false;
   }, { passive: true });
-  book.addEventListener('touchend', (e) => {
-    if(touchStartX === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    touchStartX = null;
-    if(Math.abs(dx) < 40) return;
-    if(dx < 0) goNovelNext(); else goNovelPrev();
+
+  pageEl.addEventListener('touchmove', (e) => {
+    if(startX === null) return;
+    const t = e.touches[0];
+    if(Math.abs(t.clientX - startX) > 8 || Math.abs(t.clientY - startY) > 8) moved = true;
+  }, { passive: true });
+
+  pageEl.addEventListener('touchend', (e) => {
+    if(startX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const width = pageEl.clientWidth;
+    const tapX = t.clientX;
+    startX = null;
+
+    if(Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){
+      if(dx < 0) goReaderNext(); else goReaderPrev();
+      return;
+    }
+    if(moved) return;
+
+    if(tapX < width * 0.28){ goReaderPrev(); }
+    else if(tapX > width * 0.72){ goReaderNext(); }
+    else{ toggleReaderOverlay(); }
+  });
+
+  // fallback klik mouse untuk pratinjau di desktop (tidak ada event sentuh)
+  pageEl.addEventListener('click', (e) => {
+    if('ontouchstart' in window) return;
+    const rect = pageEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if(x < rect.width * 0.28){ goReaderPrev(); }
+    else if(x > rect.width * 0.72){ goReaderNext(); }
+    else{ toggleReaderOverlay(); }
   });
 })();
 
-// ---------- membacakan halaman novel (suara) ----------
+// ---------- membacakan halaman yang sedang tampil (suara) ----------
 function splitIntoSpeechChunks(text){
   const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
   return parts.length ? parts : (text ? [text] : []);
 }
 
-async function speakPageAsync(pageNum){
-  const text = await getPageText(pageNum);
+async function speakCurrentPageAsync(){
+  const paras = bookState.pages[bookState.currentPageIdx] || [];
+  const text = paras.map(p => p.text).join(' ');
   const chunks = splitIntoSpeechChunks(text);
   if(chunks.length === 0){
     await speakAsync('Halaman ini tidak memiliki teks yang bisa dibaca.', 'id-ID');
@@ -1249,12 +1437,12 @@ async function speakPageAsync(pageNum){
 
 async function startNovelReading(){
   if(novelReaderState.active){ stopNovelReading(); return; }
-  if(!bookState.pdf) return;
+  if(!bookState.ready) return;
   stopReading(); // hentikan Bacakan kosakata dulu, supaya suara tidak tabrakan
 
   novelReaderState.active = true;
-  const btn = document.getElementById('novelPlayBtn');
-  btn.textContent = '⏸ Berhenti Membaca';
+  const btn = document.getElementById('readerPlayBtn');
+  btn.textContent = '⏸ Berhenti';
   btn.classList.add('playing');
 
   ensureSilentAudio().play().catch(() => {});
@@ -1273,21 +1461,23 @@ async function startNovelReading(){
   }
   await requestWakeLockSafe();
 
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+
   if(novelReaderState.keepAliveTimer) clearInterval(novelReaderState.keepAliveTimer);
   novelReaderState.keepAliveTimer = setInterval(() => {
-    if('speechSynthesis' in window && novelReaderState.active){
+    if('speechSynthesis' in window && novelReaderState.active && window.speechSynthesis.speaking){
       window.speechSynthesis.pause();
       window.speechSynthesis.resume();
     }
   }, 9000);
 
-  while(novelReaderState.active && bookState.currentPage <= bookState.numPages){
-    await speakPageAsync(bookState.currentPage);
+  while(novelReaderState.active && bookState.currentPageIdx < bookState.pages.length){
+    await speakCurrentPageAsync();
     if(!novelReaderState.active) break;
-    if(bookState.currentPage >= bookState.numPages) break;
-    await showNovelPage(bookState.currentPage + 1, 'next');
+    if(bookState.currentPageIdx >= bookState.pages.length - 1) break;
+    await goReaderPage(bookState.currentPageIdx + 1, 'next');
     if(!novelReaderState.active) break;
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 300));
   }
   if(novelReaderState.active) stopNovelReading();
 }
@@ -1303,100 +1493,173 @@ function stopNovelReading(){
   if(!readerState.active) releaseWakeLockSafe();
   clearMediaSession();
 
-  const btn = document.getElementById('novelPlayBtn');
+  const btn = document.getElementById('readerPlayBtn');
   if(btn){
-    btn.textContent = '🔊 Bacakan Halaman Ini';
+    btn.textContent = '🔊 Bacakan';
     btn.classList.remove('playing');
   }
 }
 
-document.getElementById('novelPlayBtn').addEventListener('click', startNovelReading);
+document.getElementById('readerPlayBtn').addEventListener('click', startNovelReading);
 
-// ---------- unggah & buka file PDF ----------
-async function loadNovelFile(file, opts){
+document.getElementById('readerBackBtn').addEventListener('click', () => {
+  stopNovelReading();
+  showScreen('novel');
+  renderNovelLibrary();
+});
+
+// ---------- buka & siapkan satu novel untuk dibaca ----------
+async function openNovelReader(rec, opts){
   opts = opts || {};
   stopReading();
   stopNovelReading();
 
-  document.getElementById('novelEmpty').classList.add('hidden');
-  document.getElementById('bookStage').classList.add('hidden');
-  document.getElementById('bookControls').classList.add('hidden');
-  document.getElementById('bookAudioBar').classList.add('hidden');
-  document.getElementById('novelLoading').classList.remove('hidden');
-  document.getElementById('novelLoadingText').textContent = opts.loadingText || `Memuat "${file.name || opts.title || 'novel'}"…`;
+  showScreen('novelReader');
+  document.getElementById('readerOverlay').classList.add('hidden');
+  document.getElementById('readerLoading').classList.remove('hidden');
+  document.getElementById('readerLoadingText') &&
+    (document.getElementById('readerLoadingText').textContent = `Menyiapkan "${rec.title || 'novel'}"…`);
+
+  bookState = {
+    pdf: null, numPages: 0, title: rec.title || 'Novel', fileId: rec.id,
+    paragraphs: [], pages: [], currentPageIdx: 0, transitioning: false, ready: false
+  };
 
   try{
-    if(!window.pdfjsLib) throw new Error('Pustaka PDF.js belum siap. Periksa koneksi internet lalu coba lagi.');
-
-    const arrayBuffer = await file.arrayBuffer();
+    if(!window.pdfjsLib) throw new Error('Pustaka PDF.js belum siap.');
+    const arrayBuffer = await rec.file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
     bookState.pdf = pdf;
     bookState.numPages = pdf.numPages;
-    bookState.pageCache = {};
-    bookState.textCache = {};
-    bookState.title = opts.title || (file.name ? file.name.replace(/\.pdf$/i, '') : 'Novel');
-    bookState.fileId = opts.id || await hashFile(file);
 
-    document.getElementById('novelTitle').textContent = bookState.title;
+    bookState.paragraphs = await extractAllParagraphs(pdf);
 
-    if(!opts.skipSave){
-      await saveNovelToDB(file, bookState.fileId, bookState.title);
+    // ukur & susun ulang setelah tata letak selesai render (perlu 1 frame supaya
+    // elemen pengukur sudah punya ukuran akhir yang benar)
+    await waitFrame();
+    buildPagination();
+
+    const progress = getNovelProgress(bookState.fileId);
+    let startIdx = 0;
+    if(progress && progress.paraGlobalIndex != null){
+      for(let i = 0; i < bookState.pages.length; i++){
+        const firstPara = bookState.pages[i][0];
+        if(firstPara && firstPara.globalIndex >= progress.paraGlobalIndex){
+          startIdx = i;
+          break;
+        }
+      }
     }
+    bookState.currentPageIdx = Math.min(startIdx, bookState.pages.length - 1);
+    bookState.ready = true;
 
-    const savedPage = loadNovelBookmarkPage(bookState.fileId);
-    const startPage = (savedPage && savedPage <= pdf.numPages) ? savedPage : 1;
+    renderReaderPageContent(bookState.currentPageIdx);
+    updateReaderUI();
+    saveNovelProgress();
 
-    document.getElementById('novelLoading').classList.add('hidden');
-    document.getElementById('bookStage').classList.remove('hidden');
-    document.getElementById('bookControls').classList.remove('hidden');
-    document.getElementById('bookAudioBar').classList.remove('hidden');
-
-    bookState.currentPage = startPage;
-    await showNovelPage(startPage, null);
+    document.getElementById('readerLoading').classList.add('hidden');
   }catch(err){
-    console.warn('Gagal memuat PDF novel:', err);
-    document.getElementById('novelLoading').classList.add('hidden');
-    document.getElementById('novelEmpty').classList.remove('hidden');
-    document.getElementById('novelTitle').textContent = 'Pilih PDF novel kamu';
-    alert('Gagal membuka file PDF ini. Pastikan filenya PDF yang valid, lalu coba lagi ya.');
+    console.warn('Gagal membuka novel:', err);
+    document.getElementById('readerLoading').classList.add('hidden');
+    alert('Gagal membuka novel ini. Pastikan filenya PDF berisi teks (bukan hasil pindai gambar) ya.');
+    showScreen('novel');
   }
+}
+
+// ---------- perpustakaan novel (daftar, unggah, hapus) ----------
+function renderNovelLibrary(){
+  const listEl = document.getElementById('novelList');
+  const emptyEl = document.getElementById('novelEmpty');
+
+  if(novelLibraryCache.length === 0){
+    listEl.classList.add('hidden');
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+  listEl.classList.remove('hidden');
+
+  const sorted = [...novelLibraryCache].sort((a, b) => b.savedAt - a.savedAt);
+  listEl.innerHTML = sorted.map(rec => {
+    const progress = getNovelProgress(rec.id);
+    const pct = progress ? progress.progressPct : 0;
+    const sub = progress
+      ? `Halaman ${progress.currentPageIdx + 1} dari ${progress.totalPages} · ${timeAgo(progress.updatedAt)}`
+      : 'Belum pernah dibaca';
+    return `
+      <div class="novel-item" data-id="${escapeHtml(rec.id)}">
+        <div class="novel-item-cover">📗</div>
+        <div class="novel-item-info">
+          <div class="novel-item-title">${escapeHtml(rec.title)}</div>
+          <div class="novel-item-progress-row">
+            <div class="book-progress-bar"><div class="book-progress-fill" style="width:${pct}%"></div></div>
+            <span>${pct}%</span>
+          </div>
+          <div class="novel-item-sub">${escapeHtml(sub)}</div>
+        </div>
+        <button class="novel-item-delete" data-delete-id="${escapeHtml(rec.id)}" title="Hapus novel ini">🗑️</button>
+      </div>`;
+  }).join('');
+
+  listEl.querySelectorAll('.novel-item').forEach(itemEl => {
+    itemEl.addEventListener('click', (e) => {
+      if(e.target.closest('.novel-item-delete')) return;
+      const id = itemEl.dataset.id;
+      const rec = novelLibraryCache.find(r => r.id === id);
+      if(rec) openNovelReader(rec);
+    });
+  });
+  listEl.querySelectorAll('.novel-item-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.deleteId;
+      const rec = novelLibraryCache.find(r => r.id === id);
+      const ok = confirm(`Hapus novel "${rec ? rec.title : ''}" dari perangkat ini?`);
+      if(!ok) return;
+      await deleteNovelFromDB(id);
+      deleteNovelProgress(id);
+      novelLibraryCache = novelLibraryCache.filter(r => r.id !== id);
+      renderNovelLibrary();
+    });
+  });
+}
+
+async function refreshNovelLibrary(){
+  document.getElementById('novelEmpty').classList.add('hidden');
+  document.getElementById('novelList').classList.add('hidden');
+  document.getElementById('novelLoading').classList.remove('hidden');
+  novelLibraryCache = await loadAllNovelsFromDB();
+  document.getElementById('novelLoading').classList.add('hidden');
+  renderNovelLibrary();
 }
 
 async function handleNovelFileInput(e){
   const file = e.target.files && e.target.files[0];
-  e.target.value = ''; // supaya bisa unggah file yang sama lagi kalau perlu
+  e.target.value = '';
   if(!file) return;
-  await loadNovelFile(file);
+
+  const id = await hashFile(file);
+  const title = file.name.replace(/\.pdf$/i, '');
+  await saveNovelToDB(file, id, title);
+
+  const existingIdx = novelLibraryCache.findIndex(r => r.id === id);
+  const rec = { id, title, file, savedAt: Date.now() };
+  if(existingIdx >= 0) novelLibraryCache[existingIdx] = rec;
+  else novelLibraryCache.push(rec);
+
+  openNovelReader(rec);
 }
 
 document.getElementById('novelFileInput').addEventListener('change', handleNovelFileInput);
 document.getElementById('novelFileInput2').addEventListener('change', handleNovelFileInput);
 
-async function tryAutoLoadLastNovel(){
-  const rec = await loadLastNovelFromDB();
-  if(!rec || !rec.file) return;
-  await loadNovelFile(rec.file, {
-    id: rec.id,
-    title: rec.title,
-    skipSave: true,
-    loadingText: `Membuka "${rec.title || 'novel'}" terakhir…`
-  });
-}
-
 function openNovelScreen(){
   stopReading();
   showScreen('novel');
-  if(!novelAutoLoadAttempted){
-    novelAutoLoadAttempted = true;
-    if(!bookState.pdf){
-      tryAutoLoadLastNovel();
-    }
-  }
+  refreshNovelLibrary();
 }
 
-document.getElementById('novelBackBtn').addEventListener('click', () => {
-  stopNovelReading();
+document.getElementById('novelBackToHomeBtn').addEventListener('click', () => {
   showScreen('home');
 });
 
