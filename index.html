@@ -688,6 +688,231 @@
     margin-top:0;
   }
 
+  /* ---------- NOVEL READER (buku digital, ramah mata) ---------- */
+  :root{
+    --book-page-bg:#faf3e2;
+    --book-cover1:#6b4a34;
+    --book-cover2:#4a3223;
+  }
+  html[data-theme="comfort"]{
+    --book-page-bg:#e9dcc0;
+  }
+
+  .novel-header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .novel-title-wrap{flex:1; min-width:0;}
+  .novel-title{
+    font-weight:700;
+    font-size: clamp(13px,2vh,15px);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .novel-page-info{
+    font-size: clamp(10px,1.5vh,11.5px);
+    color:var(--ink-soft);
+  }
+  label.icon-btn{display:flex;}
+  .hidden-file-input{display:none;}
+
+  .novel-empty{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    gap:8px;
+    padding: 16px;
+  }
+  .novel-empty-icon{font-size: clamp(44px,9vh,60px);}
+  .novel-empty h3{font-size: clamp(15px,2.4vh,18px); margin:4px 0 0;}
+  .novel-empty p{
+    font-size: clamp(11.5px,1.8vh,13px);
+    color:var(--ink-soft);
+    max-width:300px;
+    margin:0;
+    line-height:1.5;
+  }
+  .upload-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:10px;
+    padding: 12px 24px;
+    border-radius:100px;
+    background:linear-gradient(135deg,var(--gold),var(--gold-deep));
+    color:#fff;
+    font-weight:700;
+    font-size: clamp(12.5px,2vh,14px);
+    cursor:pointer;
+    box-shadow:0 8px 20px rgba(166,127,61,0.35);
+  }
+  .upload-btn:active{transform:scale(0.97);}
+
+  .novel-loading{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+  }
+  .book-spinner{
+    width:36px; height:36px;
+    border-radius:50%;
+    border:4px solid var(--border-soft);
+    border-top-color:var(--gold);
+    animation:bookspin 0.9s linear infinite;
+  }
+  @keyframes bookspin{to{transform:rotate(360deg);}}
+  .novel-loading p{color:var(--ink-soft); font-size: clamp(12px,1.8vh,13.5px);}
+
+  .book-stage{
+    position:relative;
+    flex:1;
+    min-height:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    perspective:1600px;
+    padding:4px 2px;
+  }
+  .book-tap-zone{
+    position:absolute;
+    top:0; bottom:0;
+    width:22%;
+    border:none;
+    background:transparent;
+    z-index:8;
+    cursor:pointer;
+    padding:0;
+  }
+  .book-tap-zone.left{left:0;}
+  .book-tap-zone.right{right:0;}
+
+  .book{
+    position:relative;
+    width:100%;
+    max-width:400px;
+    height:100%;
+    max-height:100%;
+    border-radius:5px 10px 10px 5px;
+    background:var(--book-page-bg);
+    box-shadow:
+      -3px 0 0 0 var(--book-cover1),
+      -6px 3px 14px 0 rgba(51,47,42,0.28),
+      0 14px 32px rgba(51,47,42,0.24);
+    overflow:hidden;
+  }
+  .book::before{
+    content:'';
+    position:absolute; left:0; top:0; bottom:0; width:16px;
+    background:linear-gradient(90deg, rgba(51,47,42,0.22), rgba(51,47,42,0));
+    z-index:6;
+    pointer-events:none;
+  }
+  .page-layer{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--book-page-bg);
+  }
+  .page-layer img{
+    width:100%; height:100%; object-fit:contain;
+    filter: sepia(6%) saturate(94%) brightness(0.99);
+  }
+  html[data-theme="comfort"] .page-layer img{filter: sepia(10%) saturate(85%) brightness(0.8);}
+
+  .flip-leaf{
+    position:absolute; inset:0;
+    transform-style:preserve-3d;
+    transform-origin:left center;
+    transform:rotateY(0deg);
+    transition:transform 0.65s cubic-bezier(.45,.08,.2,1);
+    z-index:3;
+  }
+  .flip-leaf.flipping-back{transform-origin:right center;}
+  .flip-leaf .face{
+    position:absolute; inset:0;
+    backface-visibility:hidden;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--book-page-bg);
+  }
+  .flip-leaf .face img{
+    width:100%; height:100%; object-fit:contain;
+    filter: sepia(6%) saturate(94%) brightness(0.99);
+  }
+  html[data-theme="comfort"] .flip-leaf .face img{filter: sepia(10%) saturate(85%) brightness(0.8);}
+  .flip-leaf .face-back{transform:rotateY(180deg);}
+  .flip-leaf .face-front{box-shadow: 6px 0 18px rgba(51,47,42,0.16);}
+
+  .tint-overlay{
+    position:absolute; inset:0;
+    background:rgba(201,161,92,0.07);
+    mix-blend-mode:multiply;
+    pointer-events:none;
+    z-index:5;
+  }
+
+  .book-controls{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top: clamp(6px,1.2vh,10px);
+  }
+  .book-nav-btn{
+    width: clamp(36px,6vh,44px);
+    height: clamp(36px,6vh,44px);
+    flex-shrink:0;
+    border:none;
+    border-radius:50%;
+    background:var(--card);
+    color:var(--ink);
+    box-shadow:var(--shadow);
+    font-size: clamp(16px,2.6vh,20px);
+    font-weight:700;
+    cursor:pointer;
+  }
+  .book-nav-btn:active{transform:scale(0.92);}
+  .book-nav-btn:disabled{opacity:0.35; cursor:default;}
+  .book-progress{flex:1; min-width:0;}
+  .book-progress-bar{
+    width:100%; height:6px;
+    border-radius:100px;
+    background:var(--border-soft);
+    overflow:hidden;
+    margin-bottom:4px;
+  }
+  .book-progress-fill{
+    height:100%;
+    background:linear-gradient(90deg,var(--gold),var(--gold-deep));
+    border-radius:100px;
+    transition:width .3s ease;
+  }
+  .book-progress span{font-size: clamp(10.5px,1.6vh,12px); color:var(--ink-soft);}
+
+  .book-audio-bar{flex-shrink:0; margin-top: clamp(6px,1.2vh,10px);}
+  .audio-play-btn{
+    width:100%;
+    border:none;
+    border-radius:14px;
+    padding: clamp(10px,1.8vh,14px);
+    background:linear-gradient(135deg,var(--b1),var(--b2));
+    color:#fff;
+    font-weight:700;
+    font-family:inherit;
+    font-size: clamp(12.5px,2vh,15px);
+    cursor:pointer;
+    box-shadow:0 6px 14px rgba(93,120,189,0.3);
+  }
+  .audio-play-btn:active{transform:scale(0.98);}
+  .audio-play-btn.playing{background:linear-gradient(135deg,var(--remedial),var(--remedial-deep)); box-shadow:0 6px 14px rgba(217,151,63,0.35);}
+
   /* ---------- PROGRESS DASHBOARD ---------- */
   .progress-screen{
     overflow-y:auto;
@@ -823,6 +1048,7 @@
     </div>
     <div style="display:flex; gap:8px; flex-shrink:0;">
       <button class="icon-btn" id="comfortBtn" title="Mode Nyaman Mata">🌙</button>
+      <button class="icon-btn" id="novelBtn" title="Baca Novel">📖</button>
       <button class="icon-btn" id="progressBtn" title="Progres">📊</button>
       <button class="icon-btn" id="homeBtn" title="Beranda">🏠</button>
     </div>
@@ -958,6 +1184,58 @@
     </div>
   </section>
 
+  <!-- ============ NOVEL SCREEN (baca PDF ala buku, untuk latihan reading) ============ -->
+  <section id="novelScreen" class="screen hidden">
+    <div class="novel-header">
+      <button class="icon-btn" id="novelBackBtn" title="Kembali">←</button>
+      <div class="novel-title-wrap">
+        <div class="novel-title" id="novelTitle">Pilih PDF novel kamu</div>
+        <div class="novel-page-info" id="novelPageInfo"></div>
+      </div>
+      <label class="icon-btn" id="novelUploadIconBtn" for="novelFileInput" title="Unggah PDF baru">📤</label>
+      <input type="file" id="novelFileInput" accept="application/pdf" class="hidden-file-input" />
+    </div>
+
+    <div class="novel-empty" id="novelEmpty">
+      <div class="novel-empty-icon">📖</div>
+      <h3>Belum ada novel</h3>
+      <p>Unggah PDF cerita/novel Bahasa Inggris untuk berlatih membaca (reading) — tampilannya jadi buku digital, bisa dibalik halamannya &amp; dibacakan suaranya.</p>
+      <label class="upload-btn" for="novelFileInput2">📤 Unggah PDF</label>
+      <input type="file" id="novelFileInput2" accept="application/pdf" class="hidden-file-input" />
+    </div>
+
+    <div class="novel-loading hidden" id="novelLoading">
+      <div class="book-spinner"></div>
+      <p id="novelLoadingText">Memuat novel…</p>
+    </div>
+
+    <div class="book-stage hidden" id="bookStage">
+      <button class="book-tap-zone left" id="bookTapPrev" title="Halaman sebelumnya" aria-label="Halaman sebelumnya"></button>
+      <button class="book-tap-zone right" id="bookTapNext" title="Halaman berikutnya" aria-label="Halaman berikutnya"></button>
+      <div class="book" id="book">
+        <div class="page-layer" id="pageBehindWrap"><img id="pageBehind" alt="Halaman novel" /></div>
+        <div class="flip-leaf" id="flipLeaf">
+          <div class="face face-front" id="flipFaceFront"><img alt="" /></div>
+          <div class="face face-back" id="flipFaceBack"><img alt="" /></div>
+        </div>
+        <div class="tint-overlay"></div>
+      </div>
+    </div>
+
+    <div class="book-controls hidden" id="bookControls">
+      <button class="book-nav-btn" id="prevPageBtn" title="Sebelumnya">‹</button>
+      <div class="book-progress">
+        <div class="book-progress-bar"><div class="book-progress-fill" id="bookProgressFill"></div></div>
+        <span id="bookPageLabel">1 / 1</span>
+      </div>
+      <button class="book-nav-btn" id="nextPageBtn" title="Berikutnya">›</button>
+    </div>
+
+    <div class="book-audio-bar hidden" id="bookAudioBar">
+      <button class="audio-play-btn" id="novelPlayBtn">🔊 Bacakan Halaman Ini</button>
+    </div>
+  </section>
+
   <!-- ============ PROGRESS DASHBOARD ============ -->
   <section id="progressScreen" class="screen progress-screen hidden">
     <div class="stats-card">
@@ -1024,6 +1302,12 @@
 </div>
 
 <script src="words_data.js"></script>
+<script src="vendor/pdfjs/pdf.min.js"></script>
+<script>
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/pdf.worker.min.js';
+  }
+</script>
 <script src="app.js"></script>
 </body>
 </html>

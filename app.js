@@ -223,6 +223,7 @@ const screens = {
   home: document.getElementById('homeScreen'),
   quiz: document.getElementById('quizScreen'),
   remedial: document.getElementById('remedialScreen'),
+  novel: document.getElementById('novelScreen'),
   progress: document.getElementById('progressScreen'),
   result: document.getElementById('resultScreen')
 };
@@ -237,6 +238,10 @@ function showScreen(name){
 
 document.getElementById('progressBtn').addEventListener('click', () => {
   showScreen('progress');
+});
+
+document.getElementById('novelBtn').addEventListener('click', () => {
+  openNovelScreen();
 });
 
 // ---------- home screen ----------
@@ -284,7 +289,7 @@ document.getElementById('remedialBtn').addEventListener('click', () => {
 });
 
 document.getElementById('homeBtn').addEventListener('click', () => {
-  if(!readerState.active){
+  if(!readerState.active && !novelReaderState.active){
     window.speechSynthesis && window.speechSynthesis.cancel();
   }
   showScreen('home');
@@ -427,6 +432,7 @@ function renderProgressScreen(){
 // ---------- quiz flow (kuis utama, pilihan ganda) ----------
 function startQuiz(level){
   stopReading();
+  stopNovelReading();
   state.level = level;
   state.pool = shuffle(buildMainPool(level));
   state.index = 0;
@@ -607,6 +613,7 @@ function finishQuiz(){
 // ---------- remedial flow (flashcard, dengan jawaban diketik & dinilai otomatis) ----------
 function startRemedial(){
   stopReading();
+  stopNovelReading();
   remedialState.pool = shuffle(buildRemedialPool());
   remedialState.total = remedialState.pool.length;
   remedialState.index = 0;
@@ -740,10 +747,12 @@ function checkRemedialAnswer(forceEmpty){
   const newStreak = correct ? (item.streak || 0) + 1 : 0;
   if(correct && newStreak >= MASTERY_STREAK){
     markMastered(item.level, item.word.en);
+    // baru dihitung ke statistik akurasi SETELAH kata ini benar-benar berhasil dikuasai —
+    // percobaan selama masih di Latihan Ulang (masih membangun streak) tidak dihitung dulu.
+    recordAttempt(item.level, true);
   }else{
     markRemedial(item.level, item.word.en, newStreak);
   }
-  recordAttempt(item.level, correct);
   renderStreakDots(newStreak);
   document.getElementById('remStreak').textContent = newStreak;
 
@@ -986,6 +995,410 @@ document.querySelectorAll('.read-btn').forEach(btn => {
   });
 });
 document.getElementById('readerStopBtn').addEventListener('click', stopReading);
+
+// ---------- Novel Reader: PDF novel ditampilkan seperti buku (bisa dibalik & dibacakan) ----------
+// Halaman PDF dirender ke gambar lewat PDF.js, ditampilkan dengan animasi "membalik halaman"
+// (flip 3D) di atas panggung buku bernuansa krem hangat (ramah mata/glaukoma, minim silau).
+// File PDF yang diunggah disimpan di IndexedDB supaya tidak perlu unggah ulang tiap buka app.
+const NOVEL_DB_NAME = 'belajarKataNovelDB';
+const NOVEL_DB_STORE = 'pdfs';
+const NOVEL_BOOKMARK_KEY = 'belajarKata_novel_bookmarks_v1';
+
+let bookState = {
+  pdf: null,
+  numPages: 0,
+  currentPage: 1,
+  pageCache: {},   // pageNum -> dataURL gambar halaman
+  textCache: {},   // pageNum -> teks halaman (untuk dibacakan)
+  title: '',
+  fileId: null,
+  flipping: false
+};
+
+let novelReaderState = {
+  active: false,
+  keepAliveTimer: null
+};
+
+let novelAutoLoadAttempted = false;
+
+function openNovelDB(){
+  return new Promise((resolve, reject) => {
+    if(!('indexedDB' in window)){ reject(new Error('IndexedDB tidak didukung')); return; }
+    const req = indexedDB.open(NOVEL_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(NOVEL_DB_STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveNovelToDB(file, id, title){
+  try{
+    const db = await openNovelDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(NOVEL_DB_STORE, 'readwrite');
+      tx.objectStore(NOVEL_DB_STORE).put({ id, title, file, savedAt: Date.now() });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  }catch(e){ return false; }
+}
+
+async function loadLastNovelFromDB(){
+  try{
+    const db = await openNovelDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(NOVEL_DB_STORE, 'readonly');
+      const req = tx.objectStore(NOVEL_DB_STORE).getAll();
+      req.onsuccess = () => {
+        const all = req.result || [];
+        if(!all.length){ resolve(null); return; }
+        all.sort((a, b) => b.savedAt - a.savedAt);
+        resolve(all[0]);
+      };
+      req.onerror = () => resolve(null);
+    });
+  }catch(e){ return null; }
+}
+
+async function hashFile(file){
+  return `${file.name}_${file.size}_${file.lastModified}`;
+}
+
+function loadNovelBookmarkPage(fileId){
+  try{
+    const raw = localStorage.getItem(NOVEL_BOOKMARK_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    return all[fileId] || null;
+  }catch(e){ return null; }
+}
+
+function saveNovelBookmark(){
+  try{
+    const raw = localStorage.getItem(NOVEL_BOOKMARK_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    all[bookState.fileId] = bookState.currentPage;
+    localStorage.setItem(NOVEL_BOOKMARK_KEY, JSON.stringify(all));
+  }catch(e){/* abaikan */}
+}
+
+// ---------- render halaman PDF ke gambar ----------
+async function renderPdfPageToDataUrl(pageNum, maxWidth, maxHeight){
+  if(bookState.pageCache[pageNum]) return bookState.pageCache[pageNum];
+  const page = await bookState.pdf.getPage(pageNum);
+  const viewport1 = page.getViewport({ scale: 1 });
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const scale = Math.min(maxWidth / viewport1.width, maxHeight / viewport1.height) * dpr;
+  const viewport = page.getViewport({ scale: Math.max(scale, 0.3) });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const ctx = canvas.getContext('2d');
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  bookState.pageCache[pageNum] = dataUrl;
+  return dataUrl;
+}
+
+async function getPageText(pageNum){
+  if(bookState.textCache[pageNum] !== undefined) return bookState.textCache[pageNum];
+  const page = await bookState.pdf.getPage(pageNum);
+  const content = await page.getTextContent();
+  const text = content.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
+  bookState.textCache[pageNum] = text;
+  return text;
+}
+
+function prefetchNeighbors(){
+  const stage = document.getElementById('book');
+  const maxW = stage.clientWidth || 380;
+  const maxH = stage.clientHeight || 560;
+  [bookState.currentPage - 1, bookState.currentPage + 1].forEach(n => {
+    if(n >= 1 && n <= bookState.numPages && !bookState.pageCache[n]){
+      renderPdfPageToDataUrl(n, maxW, maxH).catch(() => {});
+    }
+  });
+}
+
+function updateNovelUI(){
+  document.getElementById('novelPageInfo').textContent =
+    `Halaman ${bookState.currentPage} dari ${bookState.numPages}`;
+  document.getElementById('bookPageLabel').textContent =
+    `${bookState.currentPage} / ${bookState.numPages}`;
+  const pct = bookState.numPages > 1
+    ? ((bookState.currentPage - 1) / (bookState.numPages - 1)) * 100
+    : 100;
+  document.getElementById('bookProgressFill').style.width = pct + '%';
+  document.getElementById('prevPageBtn').disabled = bookState.currentPage <= 1;
+  document.getElementById('nextPageBtn').disabled = bookState.currentPage >= bookState.numPages;
+}
+
+// ---------- animasi membalik halaman ----------
+async function showNovelPage(targetPage, direction){
+  if(bookState.flipping || !bookState.pdf) return;
+  targetPage = Math.min(Math.max(targetPage, 1), bookState.numPages);
+  if(targetPage === bookState.currentPage && direction) return;
+
+  const stage = document.getElementById('book');
+  const maxW = stage.clientWidth || 380;
+  const maxH = stage.clientHeight || 560;
+  const targetUrl = await renderPdfPageToDataUrl(targetPage, maxW, maxH);
+
+  if(!direction){
+    document.getElementById('pageBehind').src = targetUrl;
+    document.getElementById('flipFaceFront').querySelector('img').src = targetUrl;
+    bookState.currentPage = targetPage;
+    updateNovelUI();
+    prefetchNeighbors();
+    saveNovelBookmark();
+    return;
+  }
+
+  const leaf = document.getElementById('flipLeaf');
+  const faceFront = document.getElementById('flipFaceFront').querySelector('img');
+  const faceBack = document.getElementById('flipFaceBack').querySelector('img');
+  const behind = document.getElementById('pageBehind');
+
+  const currentUrl = await renderPdfPageToDataUrl(bookState.currentPage, maxW, maxH);
+  faceFront.src = currentUrl;
+  faceBack.src = targetUrl;
+  behind.src = targetUrl;
+
+  bookState.flipping = true;
+  leaf.style.transition = 'none';
+  leaf.classList.toggle('flipping-back', direction === 'prev');
+  leaf.style.transform = 'rotateY(0deg)';
+  void leaf.offsetWidth; // paksa reflow sebelum transisi berikutnya
+  leaf.style.transition = '';
+
+  const endDeg = direction === 'next' ? -180 : 180;
+
+  await new Promise((resolve) => {
+    requestAnimationFrame(() => { leaf.style.transform = `rotateY(${endDeg}deg)`; });
+    const onEnd = () => {
+      leaf.removeEventListener('transitionend', onEnd);
+      resolve();
+    };
+    leaf.addEventListener('transitionend', onEnd);
+    // jaring pengaman kalau transitionend tidak terpicu (browser tertentu / tab background)
+    setTimeout(resolve, 900);
+  });
+
+  leaf.style.transition = 'none';
+  leaf.style.transform = 'rotateY(0deg)';
+  void leaf.offsetWidth;
+  leaf.style.transition = '';
+  // wajah depan harus disamakan dengan halaman yang baru, supaya saat leaf
+  // kembali ke posisi datar (0deg) tampilannya tetap konsisten dengan
+  // halaman "behind" di baliknya, bukan kembali ke halaman lama.
+  faceFront.src = targetUrl;
+
+  bookState.currentPage = targetPage;
+  bookState.flipping = false;
+  updateNovelUI();
+  prefetchNeighbors();
+  saveNovelBookmark();
+}
+
+function goNovelNext(){ showNovelPage(bookState.currentPage + 1, 'next'); }
+function goNovelPrev(){ showNovelPage(bookState.currentPage - 1, 'prev'); }
+
+document.getElementById('prevPageBtn').addEventListener('click', goNovelPrev);
+document.getElementById('nextPageBtn').addEventListener('click', goNovelNext);
+document.getElementById('bookTapPrev').addEventListener('click', goNovelPrev);
+document.getElementById('bookTapNext').addEventListener('click', goNovelNext);
+
+// geser jari (swipe) untuk membalik halaman, seperti buku sungguhan
+(function setupNovelSwipe(){
+  let touchStartX = null;
+  const book = document.getElementById('book');
+  book.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+  }, { passive: true });
+  book.addEventListener('touchend', (e) => {
+    if(touchStartX === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    touchStartX = null;
+    if(Math.abs(dx) < 40) return;
+    if(dx < 0) goNovelNext(); else goNovelPrev();
+  });
+})();
+
+// ---------- membacakan halaman novel (suara) ----------
+function splitIntoSpeechChunks(text){
+  const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  return parts.length ? parts : (text ? [text] : []);
+}
+
+async function speakPageAsync(pageNum){
+  const text = await getPageText(pageNum);
+  const chunks = splitIntoSpeechChunks(text);
+  if(chunks.length === 0){
+    await speakAsync('Halaman ini tidak memiliki teks yang bisa dibaca.', 'id-ID');
+    return;
+  }
+  for(const chunk of chunks){
+    if(!novelReaderState.active) return;
+    await speakAsync(chunk, 'en-US');
+  }
+}
+
+async function startNovelReading(){
+  if(novelReaderState.active){ stopNovelReading(); return; }
+  if(!bookState.pdf) return;
+  stopReading(); // hentikan Bacakan kosakata dulu, supaya suara tidak tabrakan
+
+  novelReaderState.active = true;
+  const btn = document.getElementById('novelPlayBtn');
+  btn.textContent = '⏸ Berhenti Membaca';
+  btn.classList.add('playing');
+
+  ensureSilentAudio().play().catch(() => {});
+  if('mediaSession' in navigator){
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: 'Membaca Novel — ' + (bookState.title || 'Novel'),
+      artist: 'Belajar Kata',
+      album: 'Reading Practice'
+    });
+    navigator.mediaSession.playbackState = 'playing';
+    navigator.mediaSession.setActionHandler('pause', stopNovelReading);
+    navigator.mediaSession.setActionHandler('stop', stopNovelReading);
+    navigator.mediaSession.setActionHandler('play', () => {
+      if(novelReaderState.active) navigator.mediaSession.playbackState = 'playing';
+    });
+  }
+  await requestWakeLockSafe();
+
+  if(novelReaderState.keepAliveTimer) clearInterval(novelReaderState.keepAliveTimer);
+  novelReaderState.keepAliveTimer = setInterval(() => {
+    if('speechSynthesis' in window && novelReaderState.active){
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }
+  }, 9000);
+
+  while(novelReaderState.active && bookState.currentPage <= bookState.numPages){
+    await speakPageAsync(bookState.currentPage);
+    if(!novelReaderState.active) break;
+    if(bookState.currentPage >= bookState.numPages) break;
+    await showNovelPage(bookState.currentPage + 1, 'next');
+    if(!novelReaderState.active) break;
+    await new Promise(r => setTimeout(r, 400));
+  }
+  if(novelReaderState.active) stopNovelReading();
+}
+
+function stopNovelReading(){
+  novelReaderState.active = false;
+  if(novelReaderState.keepAliveTimer){
+    clearInterval(novelReaderState.keepAliveTimer);
+    novelReaderState.keepAliveTimer = null;
+  }
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if(readerState.silentAudio && !readerState.active) readerState.silentAudio.pause();
+  if(!readerState.active) releaseWakeLockSafe();
+  clearMediaSession();
+
+  const btn = document.getElementById('novelPlayBtn');
+  if(btn){
+    btn.textContent = '🔊 Bacakan Halaman Ini';
+    btn.classList.remove('playing');
+  }
+}
+
+document.getElementById('novelPlayBtn').addEventListener('click', startNovelReading);
+
+// ---------- unggah & buka file PDF ----------
+async function loadNovelFile(file, opts){
+  opts = opts || {};
+  stopReading();
+  stopNovelReading();
+
+  document.getElementById('novelEmpty').classList.add('hidden');
+  document.getElementById('bookStage').classList.add('hidden');
+  document.getElementById('bookControls').classList.add('hidden');
+  document.getElementById('bookAudioBar').classList.add('hidden');
+  document.getElementById('novelLoading').classList.remove('hidden');
+  document.getElementById('novelLoadingText').textContent = opts.loadingText || `Memuat "${file.name || opts.title || 'novel'}"…`;
+
+  try{
+    if(!window.pdfjsLib) throw new Error('Pustaka PDF.js belum siap. Periksa koneksi internet lalu coba lagi.');
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    bookState.pdf = pdf;
+    bookState.numPages = pdf.numPages;
+    bookState.pageCache = {};
+    bookState.textCache = {};
+    bookState.title = opts.title || (file.name ? file.name.replace(/\.pdf$/i, '') : 'Novel');
+    bookState.fileId = opts.id || await hashFile(file);
+
+    document.getElementById('novelTitle').textContent = bookState.title;
+
+    if(!opts.skipSave){
+      await saveNovelToDB(file, bookState.fileId, bookState.title);
+    }
+
+    const savedPage = loadNovelBookmarkPage(bookState.fileId);
+    const startPage = (savedPage && savedPage <= pdf.numPages) ? savedPage : 1;
+
+    document.getElementById('novelLoading').classList.add('hidden');
+    document.getElementById('bookStage').classList.remove('hidden');
+    document.getElementById('bookControls').classList.remove('hidden');
+    document.getElementById('bookAudioBar').classList.remove('hidden');
+
+    bookState.currentPage = startPage;
+    await showNovelPage(startPage, null);
+  }catch(err){
+    console.warn('Gagal memuat PDF novel:', err);
+    document.getElementById('novelLoading').classList.add('hidden');
+    document.getElementById('novelEmpty').classList.remove('hidden');
+    document.getElementById('novelTitle').textContent = 'Pilih PDF novel kamu';
+    alert('Gagal membuka file PDF ini. Pastikan filenya PDF yang valid, lalu coba lagi ya.');
+  }
+}
+
+async function handleNovelFileInput(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value = ''; // supaya bisa unggah file yang sama lagi kalau perlu
+  if(!file) return;
+  await loadNovelFile(file);
+}
+
+document.getElementById('novelFileInput').addEventListener('change', handleNovelFileInput);
+document.getElementById('novelFileInput2').addEventListener('change', handleNovelFileInput);
+
+async function tryAutoLoadLastNovel(){
+  const rec = await loadLastNovelFromDB();
+  if(!rec || !rec.file) return;
+  await loadNovelFile(rec.file, {
+    id: rec.id,
+    title: rec.title,
+    skipSave: true,
+    loadingText: `Membuka "${rec.title || 'novel'}" terakhir…`
+  });
+}
+
+function openNovelScreen(){
+  stopReading();
+  showScreen('novel');
+  if(!novelAutoLoadAttempted){
+    novelAutoLoadAttempted = true;
+    if(!bookState.pdf){
+      tryAutoLoadLastNovel();
+    }
+  }
+}
+
+document.getElementById('novelBackBtn').addEventListener('click', () => {
+  stopNovelReading();
+  showScreen('home');
+});
 
 // ---------- init ----------
 refreshHomeUI();
