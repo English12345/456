@@ -223,6 +223,7 @@ const screens = {
   home: document.getElementById('homeScreen'),
   quiz: document.getElementById('quizScreen'),
   remedial: document.getElementById('remedialScreen'),
+  match: document.getElementById('matchScreen'),
   novel: document.getElementById('novelScreen'),
   novelReader: document.getElementById('novelReaderScreen'),
   progress: document.getElementById('progressScreen'),
@@ -260,7 +261,7 @@ dirENID.addEventListener('click', () => {
   dirIDEN.classList.remove('active');
 });
 
-document.querySelectorAll('.level-card').forEach(card => {
+document.querySelectorAll('#homeScreen .level-card').forEach(card => {
   card.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' || e.key === ' '){
       e.preventDefault();
@@ -296,11 +297,23 @@ document.getElementById('homeBtn').addEventListener('click', () => {
   showScreen('home');
 });
 
+let resultContext = 'quiz'; // 'quiz' | 'match' — menentukan perilaku tombol di layar hasil
+
 document.getElementById('backHomeBtn').addEventListener('click', () => {
+  if(resultContext === 'match'){
+    document.getElementById('matchGame').classList.add('hidden');
+    document.getElementById('matchLevelSelect').classList.remove('hidden');
+    showScreen('match');
+    return;
+  }
   showScreen('home');
 });
 
 document.getElementById('retryBtn').addEventListener('click', () => {
+  if(resultContext === 'match'){
+    startMatchQuiz(matchState.level);
+    return;
+  }
   // "Lanjut Belajar": kembali ke level yang sama kalau masih ada sisa, kalau tidak ke home
   if(state.level && buildMainPool(state.level).length > 0){
     startQuiz(state.level);
@@ -585,6 +598,7 @@ document.getElementById('latihBtn').addEventListener('click', () => {
 });
 
 function finishQuiz(){
+  resultContext = 'quiz';
   window.speechSynthesis && window.speechSynthesis.cancel();
   const total = state.good + state.bad;
   const pct = total ? Math.round((state.good / total) * 100) : 0;
@@ -607,6 +621,8 @@ function finishQuiz(){
   document.getElementById('resultEmoji').textContent = emoji;
   document.getElementById('resultTitle').textContent = title;
   document.getElementById('resultSubtitle').textContent = subtitle;
+  document.getElementById('retryBtn').textContent = '🔁 Lanjut Belajar';
+  document.getElementById('backHomeBtn').textContent = '🏠 Pilih Level Lain';
 
   showScreen('result');
 }
@@ -1661,6 +1677,219 @@ function openNovelScreen(){
 
 document.getElementById('novelBackToHomeBtn').addEventListener('click', () => {
   showScreen('home');
+});
+
+// ---------- Kuis Pasangan: cocokkan 15 kata acak dengan artinya ----------
+let matchState = {
+  level: null,
+  pairs: [],           // [{pid, id, en, matched, flaggedRemedial}]
+  leftOrder: [],
+  rightOrder: [],
+  selectedLeftId: null,
+  selectedRightId: null,
+  matchedCount: 0,
+  wrongCount: 0,
+  lockInput: false
+};
+
+const MATCH_QUIZ_SIZE = 15;
+
+function matchItemHtml(pair, side){
+  const text = side === 'left' ? pair.en : pair.id;
+  const cls = ['match-item'];
+  if(pair.matched) cls.push('matched');
+  return `<button type="button" class="${cls.join(' ')}" data-pid="${pair.pid}" data-side="${side}" ${pair.matched ? 'disabled' : ''}>${escapeHtml(text)}</button>`;
+}
+
+function renderMatchColumns(){
+  const leftEl = document.getElementById('matchColLeft');
+  const rightEl = document.getElementById('matchColRight');
+
+  leftEl.innerHTML = matchState.leftOrder
+    .map(pid => matchItemHtml(matchState.pairs.find(p => p.pid === pid), 'left'))
+    .join('');
+  rightEl.innerHTML = matchState.rightOrder
+    .map(pid => matchItemHtml(matchState.pairs.find(p => p.pid === pid), 'right'))
+    .join('');
+
+  leftEl.querySelectorAll('.match-item').forEach(el => {
+    el.addEventListener('click', () => onMatchItemClick(el));
+  });
+  rightEl.querySelectorAll('.match-item').forEach(el => {
+    el.addEventListener('click', () => onMatchItemClick(el));
+  });
+}
+
+function updateMatchSelectionUI(){
+  document.querySelectorAll('.match-item').forEach(el => {
+    const pid = Number(el.dataset.pid);
+    const side = el.dataset.side;
+    const isSelected = (side === 'left' && pid === matchState.selectedLeftId) ||
+                        (side === 'right' && pid === matchState.selectedRightId);
+    el.classList.toggle('selected', isSelected);
+  });
+}
+
+function updateMatchScoreUI(){
+  document.getElementById('matchScoreText').textContent =
+    `Cocok: ${matchState.matchedCount}/${matchState.pairs.length}`;
+}
+
+function onMatchItemClick(el){
+  if(matchState.lockInput) return;
+  const pid = Number(el.dataset.pid);
+  const side = el.dataset.side;
+  const pair = matchState.pairs.find(p => p.pid === pid);
+  if(!pair || pair.matched) return;
+
+  if(side === 'left') matchState.selectedLeftId = pid;
+  else matchState.selectedRightId = pid;
+
+  updateMatchSelectionUI();
+
+  if(matchState.selectedLeftId != null && matchState.selectedRightId != null){
+    evaluateMatchSelection();
+  }
+}
+
+function evaluateMatchSelection(){
+  const leftPid = matchState.selectedLeftId;
+  const rightPid = matchState.selectedRightId;
+  matchState.lockInput = true;
+
+  const leftEl = document.querySelector(`.match-item[data-side="left"][data-pid="${leftPid}"]`);
+  const rightEl = document.querySelector(`.match-item[data-side="right"][data-pid="${rightPid}"]`);
+  const correct = leftPid === rightPid;
+
+  if(correct){
+    const pair = matchState.pairs.find(p => p.pid === leftPid);
+    pair.matched = true;
+    matchState.matchedCount++;
+    if(leftEl) leftEl.classList.add('correct-flash');
+    if(rightEl) rightEl.classList.add('correct-flash');
+    updateMatchScoreUI();
+
+    setTimeout(() => {
+      matchState.selectedLeftId = null;
+      matchState.selectedRightId = null;
+      matchState.lockInput = false;
+      if(matchState.matchedCount >= matchState.pairs.length){
+        finishMatchQuiz();
+      }else{
+        renderMatchColumns();
+      }
+    }, 380);
+  }else{
+    matchState.wrongCount++;
+    if(leftEl) leftEl.classList.add('wrong-flash');
+    if(rightEl) rightEl.classList.add('wrong-flash');
+
+    const pair = matchState.pairs.find(p => p.pid === leftPid);
+    if(pair && !pair.flaggedRemedial){
+      pair.flaggedRemedial = true;
+      markRemedial(matchState.level, pair.en, 0);
+    }
+
+    setTimeout(() => {
+      if(leftEl) leftEl.classList.remove('wrong-flash', 'selected');
+      if(rightEl) rightEl.classList.remove('wrong-flash', 'selected');
+      matchState.selectedLeftId = null;
+      matchState.selectedRightId = null;
+      matchState.lockInput = false;
+    }, 480);
+  }
+}
+
+function startMatchQuiz(level){
+  stopReading();
+  stopNovelReading();
+
+  const source = shuffle(WORD_DATA[level] || []).slice(0, MATCH_QUIZ_SIZE);
+  matchState = {
+    level,
+    pairs: source.map((w, idx) => ({ pid: idx, id: w.id, en: w.en, matched: false, flaggedRemedial: false })),
+    leftOrder: [],
+    rightOrder: [],
+    selectedLeftId: null,
+    selectedRightId: null,
+    matchedCount: 0,
+    wrongCount: 0,
+    lockInput: false
+  };
+  matchState.leftOrder = shuffle(matchState.pairs.map(p => p.pid));
+  matchState.rightOrder = shuffle(matchState.pairs.map(p => p.pid));
+
+  const chip = document.getElementById('matchLevelChip');
+  chip.textContent = level;
+  chip.className = 'level-chip ' + level.toLowerCase();
+  updateMatchScoreUI();
+
+  document.getElementById('matchLevelSelect').classList.add('hidden');
+  document.getElementById('matchGame').classList.remove('hidden');
+  showScreen('match');
+
+  renderMatchColumns();
+}
+
+function finishMatchQuiz(){
+  resultContext = 'match';
+  window.speechSynthesis && window.speechSynthesis.cancel();
+
+  const total = matchState.pairs.length;
+  const attempts = total + matchState.wrongCount;
+  const pct = attempts ? Math.round((total / attempts) * 100) : 100;
+
+  document.getElementById('resultStats').classList.remove('hidden');
+  document.getElementById('resultGood').textContent = total;
+  document.getElementById('resultBad').textContent = matchState.wrongCount;
+  document.getElementById('resultPct').textContent = pct + '%';
+
+  let emoji = '🎉', title = 'Kuis Pasangan Selesai!';
+  let subtitle = `${total} pasangan berhasil dicocokkan di level ${matchState.level}.`;
+  if(matchState.wrongCount === 0){
+    emoji = '🏆'; title = 'Sempurna!';
+    subtitle = `Semua ${total} pasangan cocok tanpa satu pun kesalahan!`;
+  }else if(pct >= 80){
+    emoji = '🎉'; title = 'Kerja Bagus!';
+    subtitle = `${total} pasangan cocok, meleset ${matchState.wrongCount} kali.`;
+  }else{
+    emoji = '💪'; title = 'Terus Berlatih!';
+    subtitle = `${total} pasangan cocok, meleset ${matchState.wrongCount} kali.`;
+  }
+  if(matchState.wrongCount > 0){
+    subtitle += ' Kata yang sempat salah sudah masuk Latihan Ulang.';
+  }
+
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultSubtitle').textContent = subtitle;
+  document.getElementById('retryBtn').textContent = '🔁 Main Lagi';
+  document.getElementById('backHomeBtn').textContent = '🔗 Pilih Level Lain';
+
+  showScreen('result');
+}
+
+function openMatchScreen(){
+  stopReading();
+  stopNovelReading();
+  document.getElementById('matchGame').classList.add('hidden');
+  document.getElementById('matchLevelSelect').classList.remove('hidden');
+  showScreen('match');
+}
+
+document.getElementById('matchBtn').addEventListener('click', openMatchScreen);
+document.getElementById('matchBackBtn').addEventListener('click', () => {
+  showScreen('home');
+});
+
+document.querySelectorAll('#matchLevelSelect .match-level-card').forEach(card => {
+  card.addEventListener('click', () => startMatchQuiz(card.dataset.mlevel));
+  card.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      card.click();
+    }
+  });
 });
 
 // ---------- init ----------

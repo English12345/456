@@ -113,6 +113,9 @@
     margin:0;
     line-height:1.15;
     letter-spacing:-0.2px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .brand p{
     margin:1px 0 0;
@@ -126,12 +129,12 @@
     border:none;
     background:var(--card);
     box-shadow:var(--shadow);
-    width: clamp(32px, 5.2vh, 38px);
-    height: clamp(32px, 5.2vh, 38px);
-    border-radius:11px;
+    width: clamp(27px, 4.4vh, 32px);
+    height: clamp(27px, 4.4vh, 32px);
+    border-radius:9px;
     display:flex;align-items:center;justify-content:center;
     cursor:pointer;
-    font-size: clamp(14px, 2.2vh, 17px);
+    font-size: clamp(12px, 1.9vh, 14.5px);
     color:var(--ink);
     flex-shrink:0;
     transition:transform .15s ease;
@@ -688,6 +691,76 @@
     margin-top:0;
   }
 
+  /* ---------- KUIS PASANGAN (mencocokkan kata & arti) ---------- */
+  .match-intro{
+    flex-shrink:0;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size: clamp(11.5px,1.8vh,13px);
+    margin: 4px 0 clamp(10px,1.8vh,14px);
+  }
+  .match-level-card{min-height:0;}
+
+  .match-game{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .match-score-row{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: clamp(8px,1.4vh,12px);
+  }
+  .match-score-text{
+    font-weight:700;
+    font-size: clamp(11.5px,1.8vh,13px);
+    color:var(--ink-soft);
+  }
+  .match-columns{
+    flex:1;
+    min-height:0;
+    display:flex;
+    gap:10px;
+  }
+  .match-col{
+    flex:1;
+    min-width:0;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    padding-right:2px;
+  }
+  .match-item{
+    width:100%;
+    text-align:left;
+    border:2px solid var(--border-soft);
+    background:var(--card);
+    color:var(--ink);
+    border-radius:12px;
+    padding: clamp(8px,1.5vh,11px) clamp(9px,1.8vw,12px);
+    font-family:inherit;
+    font-size: clamp(11.5px,1.7vh,13px);
+    font-weight:600;
+    line-height:1.3;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .match-item:active{transform:scale(0.97);}
+  .match-item.selected{border-color:var(--b1); background:var(--surface-soft); box-shadow:0 0 0 3px rgba(93,120,189,0.16);}
+  .match-item.matched{
+    border-color:var(--good);
+    background:var(--good-bg);
+    color:var(--good);
+    opacity:0.75;
+    cursor:default;
+  }
+  .match-item.correct-flash{border-color:var(--good); background:var(--good-bg); color:var(--good);}
+  .match-item.wrong-flash{border-color:var(--bad); background:var(--bad-bg); color:var(--bad);}
+
   /* ---------- NOVEL LIBRARY & IMMERSIVE READER (buku digital coklat hangat, ramah mata) ---------- */
   :root{
     --book-page-bg:#e7d4ac;
@@ -1090,9 +1163,10 @@
         <p id="brandSubtitle">Oxford 3000 Quiz</p>
       </div>
     </div>
-    <div style="display:flex; gap:8px; flex-shrink:0;">
+    <div style="display:flex; gap:5px; flex-shrink:0;">
       <button class="icon-btn" id="comfortBtn" title="Mode Nyaman Mata">🌙</button>
       <button class="icon-btn" id="novelBtn" title="Baca Novel">📖</button>
+      <button class="icon-btn" id="matchBtn" title="Kuis Pasangan">🔗</button>
       <button class="icon-btn" id="progressBtn" title="Progres">📊</button>
       <button class="icon-btn" id="homeBtn" title="Beranda">🏠</button>
     </div>
@@ -1225,6 +1299,55 @@
       <button class="check-btn" id="checkAnswerBtn">✓ Cek Jawaban</button>
       <button class="giveup-btn" id="giveUpBtn">Tidak tahu, lewati</button>
       <button class="next-btn" id="remedialNextBtn">Lanjut →</button>
+    </div>
+  </section>
+
+  <!-- ============ KUIS PASANGAN (mencocokkan kata & arti) ============ -->
+  <section id="matchScreen" class="screen hidden">
+    <div class="novel-header">
+      <button class="icon-btn" id="matchBackBtn" title="Kembali">←</button>
+      <div class="novel-title-wrap">
+        <div class="novel-title">🔗 Kuis Pasangan</div>
+        <div class="novel-page-info" id="matchSubtitle">Cocokkan kata dengan artinya</div>
+      </div>
+      <span class="reader-overlay-spacer"></span>
+    </div>
+
+    <div id="matchLevelSelect">
+      <p class="match-intro">Pilih level untuk mulai mencocokkan 15 kata dengan artinya.</p>
+      <div class="level-grid">
+        <div class="level-card a1 match-level-card" data-mlevel="A1" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">A1</div>
+          <div class="name">Pemula</div>
+        </div>
+        <div class="level-card a2 match-level-card" data-mlevel="A2" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">A2</div>
+          <div class="name">Dasar Lanjutan</div>
+        </div>
+        <div class="level-card b1 match-level-card" data-mlevel="B1" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">B1</div>
+          <div class="name">Menengah</div>
+        </div>
+        <div class="level-card b2 match-level-card" data-mlevel="B2" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">B2</div>
+          <div class="name">Menengah Atas</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="matchGame" class="match-game hidden">
+      <div class="match-score-row">
+        <span class="level-chip" id="matchLevelChip">A1</span>
+        <span class="match-score-text" id="matchScoreText">Cocok: 0/15</span>
+      </div>
+      <div class="match-columns">
+        <div class="match-col" id="matchColLeft"></div>
+        <div class="match-col" id="matchColRight"></div>
+      </div>
     </div>
   </section>
 
