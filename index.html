@@ -218,6 +218,10 @@
     box-shadow:0 6px 16px rgba(201,134,15,0.3);
   }
   .remedial-btn:active{transform:scale(0.98);}
+  .confusable-entry-btn{
+    background:linear-gradient(135deg,var(--b1),var(--b2));
+    box-shadow:0 6px 16px rgba(93,120,189,0.3);
+  }
   .remedial-btn.empty{
     background:var(--surface-soft);
     color:var(--ink-soft);
@@ -490,6 +494,36 @@
   .feedback-banner.good{background:var(--good-bg);color:var(--good);}
   .feedback-banner.bad{background:var(--bad-bg);color:var(--bad);}
 
+  .example-line{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top: clamp(4px,1vh,8px);
+    padding: clamp(7px,1.3vh,10px) clamp(10px,2vw,14px);
+    background:var(--surface-soft);
+    border-radius:12px;
+  }
+  .example-line.hidden{display:none;}
+  .example-speak{
+    flex-shrink:0;
+    width:26px; height:26px;
+    border:none;
+    border-radius:50%;
+    background:var(--card);
+    color:var(--ink);
+    font-size:11px;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  .example-speak:active{transform:scale(0.9);}
+  .example-text{
+    font-size: clamp(11px,1.7vh,12.5px);
+    font-style:italic;
+    color:var(--ink-soft);
+    line-height:1.4;
+  }
+
   .next-btn{
     width:100%;
     flex-shrink:0;
@@ -760,6 +794,87 @@
   }
   .match-item.correct-flash{border-color:var(--good); background:var(--good-bg); color:var(--good);}
   .match-item.wrong-flash{border-color:var(--bad); background:var(--bad-bg); color:var(--bad);}
+
+  /* ---------- KATA MIRIP (confusable words) ---------- */
+  .confusable-game{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .confusable-tip-box{
+    flex-shrink:0;
+    background:var(--surface-soft);
+    border-radius:14px;
+    padding: clamp(10px,1.8vh,14px);
+    margin-bottom: clamp(8px,1.5vh,12px);
+  }
+  .confusable-pair-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .confusable-word{
+    flex:1;
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .confusable-word b{font-size: clamp(13px,2vh,15px); color:var(--ink);}
+  .confusable-word span{font-size: clamp(10px,1.5vh,11.5px); color:var(--ink-soft);}
+  .confusable-vs{
+    flex-shrink:0;
+    font-size:10.5px;
+    font-weight:700;
+    color:var(--ink-soft);
+    background:var(--card);
+    border-radius:50%;
+    width:24px; height:24px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .confusable-tip-text{
+    margin:0;
+    font-size: clamp(10.5px,1.6vh,12px);
+    color:var(--ink-soft);
+    line-height:1.5;
+    text-align:center;
+  }
+  .confusable-sentence{
+    flex-shrink:0;
+    text-align:center;
+    font-weight:700;
+    font-size: clamp(14px,2.3vh,17px);
+    padding: clamp(14px,2.4vh,20px) clamp(10px,2vw,16px);
+    background:var(--card);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    margin-bottom: clamp(10px,1.8vh,14px);
+  }
+  .confusable-choice-row{
+    flex-shrink:0;
+    display:flex;
+    gap:10px;
+    margin-bottom: clamp(6px,1.2vh,10px);
+  }
+  .confusable-choice-btn{
+    flex:1;
+    border:2px solid var(--border-soft);
+    background:var(--card);
+    color:var(--ink);
+    border-radius:14px;
+    padding: clamp(12px,2vh,16px) 10px;
+    font-family:inherit;
+    font-weight:700;
+    font-size: clamp(13px,2vh,15px);
+    cursor:pointer;
+  }
+  .confusable-choice-btn:active{transform:scale(0.97);}
+  .confusable-choice-btn:disabled{cursor:default;}
+  .confusable-choice-btn.correct{border-color:var(--good); background:var(--good-bg); color:var(--good);}
+  .confusable-choice-btn.wrong{border-color:var(--bad); background:var(--bad-bg); color:var(--bad);}
 
   /* ---------- NOVEL LIBRARY & IMMERSIVE READER (buku digital coklat hangat, ramah mata) ---------- */
   :root{
@@ -1191,6 +1306,11 @@
       <span class="badge" id="remedialBadge">0 kata</span>
     </button>
 
+    <button class="remedial-btn confusable-entry-btn" id="confusableBtn">
+      <span>🆚 Kata Mirip</span>
+      <span class="badge" id="confusableBadge">28 pasang</span>
+    </button>
+
     <div class="level-grid">
       <div class="level-card a1" data-level="A1" tabindex="0" role="button">
         <div class="blob"></div>
@@ -1259,6 +1379,10 @@
 
     <button class="latih-btn" id="latihBtn">🧠 Belum Tahu — Latih Kata Ini</button>
     <div class="feedback-banner" id="feedbackBanner"></div>
+    <div class="example-line hidden" id="exampleLine">
+      <button class="example-speak" id="exampleSpeakBtn" title="Dengarkan kalimat">🔊</button>
+      <span class="example-text" id="exampleText"></span>
+    </div>
     <button class="next-btn" id="nextBtn">Lanjut →</button>
   </section>
 
@@ -1295,6 +1419,10 @@
         autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
     </div>
     <div class="feedback-banner" id="remedialFeedback"></div>
+    <div class="example-line hidden" id="remedialExampleLine">
+      <button class="example-speak" id="remedialExampleSpeakBtn" title="Dengarkan kalimat">🔊</button>
+      <span class="example-text" id="remedialExampleText"></span>
+    </div>
     <div class="remedial-btn-row">
       <button class="check-btn" id="checkAnswerBtn">✓ Cek Jawaban</button>
       <button class="giveup-btn" id="giveUpBtn">Tidak tahu, lewati</button>
@@ -1348,6 +1476,76 @@
         <div class="match-col" id="matchColLeft"></div>
         <div class="match-col" id="matchColRight"></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ KATA MIRIP (kata yang sering ketuker) ============ -->
+  <section id="confusableScreen" class="screen hidden">
+    <div class="novel-header">
+      <button class="icon-btn" id="confusableBackBtn" title="Kembali">←</button>
+      <div class="novel-title-wrap">
+        <div class="novel-title">🆚 Kata Mirip</div>
+        <div class="novel-page-info">Latihan membedakan kata yang sering ketuker</div>
+      </div>
+      <span class="reader-overlay-spacer"></span>
+    </div>
+
+    <div id="confusableLevelSelect">
+      <p class="match-intro">Pilih level untuk berlatih membedakan kata yang sering ketuker.</p>
+      <div class="level-grid">
+        <div class="level-card a1 confusable-level-card" data-clevel="A1" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">A1</div>
+          <div class="name">Pemula</div>
+        </div>
+        <div class="level-card a2 confusable-level-card" data-clevel="A2" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">A2</div>
+          <div class="name">Dasar Lanjutan</div>
+        </div>
+        <div class="level-card b1 confusable-level-card" data-clevel="B1" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">B1</div>
+          <div class="name">Menengah</div>
+        </div>
+        <div class="level-card b2 confusable-level-card" data-clevel="B2" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">B2</div>
+          <div class="name">Menengah Atas</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="confusableGame" class="confusable-game hidden">
+      <div class="match-score-row">
+        <span class="level-chip" id="confusableLevelChip">A1</span>
+        <span class="match-score-text" id="confusableProgressText">1/16</span>
+      </div>
+
+      <div class="confusable-tip-box">
+        <div class="confusable-pair-row">
+          <div class="confusable-word">
+            <b id="confusableWordA">do</b>
+            <span id="confusableMeaningA">melakukan</span>
+          </div>
+          <div class="confusable-vs">vs</div>
+          <div class="confusable-word">
+            <b id="confusableWordB">make</b>
+            <span id="confusableMeaningB">membuat</span>
+          </div>
+        </div>
+        <p class="confusable-tip-text" id="confusableTipText"></p>
+      </div>
+
+      <div class="confusable-sentence" id="confusableSentence"></div>
+
+      <div class="confusable-choice-row">
+        <button class="confusable-choice-btn" id="confusableChoiceA"></button>
+        <button class="confusable-choice-btn" id="confusableChoiceB"></button>
+      </div>
+
+      <div class="feedback-banner" id="confusableFeedback"></div>
+      <button class="next-btn" id="confusableNextBtn">Lanjut →</button>
     </div>
   </section>
 
@@ -1473,6 +1671,8 @@
 </div>
 
 <script src="words_data.js"></script>
+<script src="example_sentences.js"></script>
+<script src="confusable_pairs.js"></script>
 <script src="vendor/pdfjs/pdf.min.js"></script>
 <script>
   if(window.pdfjsLib){
