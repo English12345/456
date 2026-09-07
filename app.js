@@ -188,6 +188,31 @@ function speak(text, lang){
   window.speechSynthesis.speak(utter);
 }
 
+// Mengambil kalimat contoh untuk sebuah kata, kalau ada. Levelnya bertahap
+// diisi (baru A1 yang lengkap) — kalau belum ada, cukup kembalikan null dan
+// UI akan otomatis menyembunyikan baris kalimat contoh (fitur ini pelengkap,
+// bukan wajib, jadi aman kalau datanya belum lengkap untuk level lain).
+function getExampleSentence(level, en){
+  if(typeof EXAMPLE_SENTENCES === 'undefined') return null;
+  const levelData = EXAMPLE_SENTENCES[level];
+  if(!levelData) return null;
+  return levelData[en] || null;
+}
+
+function showExampleLine(lineId, textId, level, en){
+  const line = document.getElementById(lineId);
+  const textEl = document.getElementById(textId);
+  const sentence = getExampleSentence(level, en);
+  if(sentence){
+    textEl.textContent = sentence;
+    line.dataset.sentence = sentence;
+    line.classList.remove('hidden');
+  }else{
+    line.classList.add('hidden');
+    line.dataset.sentence = '';
+  }
+}
+
 function escapeHtml(str){
   const div = document.createElement('div');
   div.textContent = str;
@@ -224,6 +249,7 @@ const screens = {
   quiz: document.getElementById('quizScreen'),
   remedial: document.getElementById('remedialScreen'),
   match: document.getElementById('matchScreen'),
+  confusable: document.getElementById('confusableScreen'),
   novel: document.getElementById('novelScreen'),
   novelReader: document.getElementById('novelReaderScreen'),
   progress: document.getElementById('progressScreen'),
@@ -306,12 +332,22 @@ document.getElementById('backHomeBtn').addEventListener('click', () => {
     showScreen('match');
     return;
   }
+  if(resultContext === 'confusable'){
+    document.getElementById('confusableGame').classList.add('hidden');
+    document.getElementById('confusableLevelSelect').classList.remove('hidden');
+    showScreen('confusable');
+    return;
+  }
   showScreen('home');
 });
 
 document.getElementById('retryBtn').addEventListener('click', () => {
   if(resultContext === 'match'){
     startMatchQuiz(matchState.level);
+    return;
+  }
+  if(resultContext === 'confusable'){
+    startConfusableQuiz(confusableState.level);
     return;
   }
   // "Lanjut Belajar": kembali ke level yang sama kalau masih ada sisa, kalau tidak ke home
@@ -324,6 +360,12 @@ document.getElementById('retryBtn').addEventListener('click', () => {
 
 function refreshHomeUI(){
   let totalMastered = 0, totalWords = 0;
+
+  if(typeof CONFUSABLE_PAIRS !== 'undefined'){
+    const totalPairs = Object.values(CONFUSABLE_PAIRS).reduce((sum, arr) => sum + arr.length, 0);
+    const badge = document.getElementById('confusableBadge');
+    if(badge) badge.textContent = totalPairs + ' pasang';
+  }
 
   Object.keys(WORD_DATA).forEach(level => {
     const total = WORD_DATA[level].length;
@@ -522,6 +564,7 @@ function renderQuestion(){
   document.getElementById('feedbackBanner').textContent = '';
   document.getElementById('nextBtn').classList.remove('show');
   document.getElementById('latihBtn').classList.remove('hidden');
+  document.getElementById('exampleLine').classList.add('hidden');
 
   updateScoreRow();
 }
@@ -559,7 +602,13 @@ function selectOption(i){
 
   updateScoreRow();
   document.getElementById('nextBtn').classList.add('show');
+  showExampleLine('exampleLine', 'exampleText', state.level, word.en);
 }
+
+document.getElementById('exampleSpeakBtn').addEventListener('click', () => {
+  const sentence = document.getElementById('exampleLine').dataset.sentence;
+  if(sentence) speak(sentence, 'en-US');
+});
 
 document.getElementById('nextBtn').addEventListener('click', () => {
   state.index++;
@@ -595,6 +644,7 @@ document.getElementById('latihBtn').addEventListener('click', () => {
 
   updateScoreRow();
   document.getElementById('nextBtn').classList.add('show');
+  showExampleLine('exampleLine', 'exampleText', state.level, word.en);
 });
 
 function finishQuiz(){
@@ -715,6 +765,7 @@ function renderFlashcard(){
 
   document.getElementById('remedialFeedback').className = 'feedback-banner';
   document.getElementById('remedialFeedback').textContent = '';
+  document.getElementById('remedialExampleLine').classList.add('hidden');
   document.getElementById('checkAnswerBtn').classList.remove('hidden');
   document.getElementById('giveUpBtn').classList.remove('hidden');
   document.getElementById('remedialNextBtn').classList.remove('show');
@@ -760,6 +811,7 @@ function checkRemedialAnswer(forceEmpty){
 
   // tetap ada suaranya: bacakan pengucapan kata Bahasa Inggris setelah dinilai
   speak(word.en, 'en-US');
+  showExampleLine('remedialExampleLine', 'remedialExampleText', item.level, item.word.en);
 
   const newStreak = correct ? (item.streak || 0) + 1 : 0;
   if(correct && newStreak >= MASTERY_STREAK){
@@ -780,6 +832,10 @@ function checkRemedialAnswer(forceEmpty){
 
 document.getElementById('checkAnswerBtn').addEventListener('click', () => checkRemedialAnswer(false));
 document.getElementById('giveUpBtn').addEventListener('click', () => checkRemedialAnswer(true));
+document.getElementById('remedialExampleSpeakBtn').addEventListener('click', () => {
+  const sentence = document.getElementById('remedialExampleLine').dataset.sentence;
+  if(sentence) speak(sentence, 'en-US');
+});
 
 document.getElementById('remedialInput').addEventListener('keydown', (e) => {
   if(e.key !== 'Enter') return;
@@ -1884,6 +1940,183 @@ document.getElementById('matchBackBtn').addEventListener('click', () => {
 
 document.querySelectorAll('#matchLevelSelect .match-level-card').forEach(card => {
   card.addEventListener('click', () => startMatchQuiz(card.dataset.mlevel));
+  card.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      card.click();
+    }
+  });
+});
+
+// ---------- Kata Mirip: latihan membedakan kata yang sering ketuker ----------
+let confusableState = {
+  level: null,
+  queue: [],   // [{pairIdx, sentence, answer, pair}]
+  index: 0,
+  good: 0,
+  bad: 0,
+  answered: false
+};
+
+function buildConfusableQueue(level){
+  const pairs = (typeof CONFUSABLE_PAIRS !== 'undefined' && CONFUSABLE_PAIRS[level]) || [];
+  const queue = [];
+  pairs.forEach((pair, pairIdx) => {
+    pair.quiz.forEach(q => {
+      queue.push({ pairIdx, sentence: q.sentence, answer: q.answer, pair });
+    });
+  });
+  return shuffle(queue);
+}
+
+function renderConfusableQuestion(){
+  confusableState.answered = false;
+  const item = confusableState.queue[confusableState.index];
+  const pair = item.pair;
+
+  const chip = document.getElementById('confusableLevelChip');
+  chip.textContent = confusableState.level;
+  chip.className = 'level-chip ' + confusableState.level.toLowerCase();
+  document.getElementById('confusableProgressText').textContent =
+    `${confusableState.index + 1}/${confusableState.queue.length}`;
+
+  document.getElementById('confusableWordA').textContent = pair.a.en;
+  document.getElementById('confusableMeaningA').textContent = pair.a.id;
+  document.getElementById('confusableWordB').textContent = pair.b.en;
+  document.getElementById('confusableMeaningB').textContent = pair.b.id;
+  document.getElementById('confusableTipText').textContent = pair.tip;
+  document.getElementById('confusableSentence').textContent = item.sentence;
+
+  const choiceA = document.getElementById('confusableChoiceA');
+  const choiceB = document.getElementById('confusableChoiceB');
+  choiceA.textContent = pair.a.en;
+  choiceB.textContent = pair.b.en;
+  choiceA.className = 'confusable-choice-btn';
+  choiceB.className = 'confusable-choice-btn';
+  choiceA.disabled = false;
+  choiceB.disabled = false;
+
+  document.getElementById('confusableFeedback').className = 'feedback-banner';
+  document.getElementById('confusableFeedback').textContent = '';
+  document.getElementById('confusableNextBtn').classList.remove('show');
+}
+
+function selectConfusableChoice(choice){
+  if(confusableState.answered) return;
+  confusableState.answered = true;
+
+  const item = confusableState.queue[confusableState.index];
+  const correct = choice === item.answer;
+  const choiceA = document.getElementById('confusableChoiceA');
+  const choiceB = document.getElementById('confusableChoiceB');
+  choiceA.disabled = true;
+  choiceB.disabled = true;
+
+  const correctBtn = item.answer === 'a' ? choiceA : choiceB;
+  const chosenBtn = choice === 'a' ? choiceA : choiceB;
+  correctBtn.classList.add('correct');
+  if(!correct) chosenBtn.classList.add('wrong');
+
+  const feedback = document.getElementById('confusableFeedback');
+  if(correct){
+    confusableState.good++;
+    feedback.className = 'feedback-banner show good';
+    feedback.textContent = '✅ Tepat!';
+  }else{
+    confusableState.bad++;
+    feedback.className = 'feedback-banner show bad';
+    const correctWord = item.answer === 'a' ? item.pair.a.en : item.pair.b.en;
+    feedback.textContent = `❌ Kurang tepat. Jawaban benar: ${correctWord}`;
+  }
+
+  document.getElementById('confusableNextBtn').classList.add('show');
+}
+
+document.getElementById('confusableChoiceA').addEventListener('click', () => selectConfusableChoice('a'));
+document.getElementById('confusableChoiceB').addEventListener('click', () => selectConfusableChoice('b'));
+
+document.getElementById('confusableNextBtn').addEventListener('click', () => {
+  confusableState.index++;
+  if(confusableState.index >= confusableState.queue.length){
+    finishConfusableQuiz();
+  }else{
+    renderConfusableQuestion();
+  }
+});
+
+function startConfusableQuiz(level){
+  stopReading();
+  stopNovelReading();
+
+  confusableState = {
+    level,
+    queue: buildConfusableQueue(level),
+    index: 0,
+    good: 0,
+    bad: 0,
+    answered: false
+  };
+
+  document.getElementById('confusableLevelSelect').classList.add('hidden');
+  document.getElementById('confusableGame').classList.remove('hidden');
+  showScreen('confusable');
+
+  if(confusableState.queue.length === 0){
+    document.getElementById('confusableGame').classList.add('hidden');
+    document.getElementById('confusableLevelSelect').classList.remove('hidden');
+    return;
+  }
+  renderConfusableQuestion();
+}
+
+function finishConfusableQuiz(){
+  resultContext = 'confusable';
+  window.speechSynthesis && window.speechSynthesis.cancel();
+
+  const total = confusableState.good + confusableState.bad;
+  const pct = total ? Math.round((confusableState.good / total) * 100) : 100;
+
+  document.getElementById('resultStats').classList.remove('hidden');
+  document.getElementById('resultGood').textContent = confusableState.good;
+  document.getElementById('resultBad').textContent = confusableState.bad;
+  document.getElementById('resultPct').textContent = pct + '%';
+
+  let emoji, title, subtitle;
+  if(confusableState.bad === 0){
+    emoji = '🏆'; title = 'Sempurna!';
+    subtitle = `Semua ${total} soal kata mirip level ${confusableState.level} benar!`;
+  }else if(pct >= 70){
+    emoji = '🎉'; title = 'Kerja Bagus!';
+    subtitle = `${confusableState.good} dari ${total} benar di level ${confusableState.level}.`;
+  }else{
+    emoji = '💪'; title = 'Terus Berlatih!';
+    subtitle = `${confusableState.good} dari ${total} benar. Coba lagi supaya makin paham bedanya.`;
+  }
+
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultSubtitle').textContent = subtitle;
+  document.getElementById('retryBtn').textContent = '🔁 Main Lagi';
+  document.getElementById('backHomeBtn').textContent = '🆚 Pilih Level Lain';
+
+  showScreen('result');
+}
+
+function openConfusableScreen(){
+  stopReading();
+  stopNovelReading();
+  document.getElementById('confusableGame').classList.add('hidden');
+  document.getElementById('confusableLevelSelect').classList.remove('hidden');
+  showScreen('confusable');
+}
+
+document.getElementById('confusableBtn').addEventListener('click', openConfusableScreen);
+document.getElementById('confusableBackBtn').addEventListener('click', () => {
+  showScreen('home');
+});
+
+document.querySelectorAll('#confusableLevelSelect .confusable-level-card').forEach(card => {
+  card.addEventListener('click', () => startConfusableQuiz(card.dataset.clevel));
   card.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' || e.key === ' '){
       e.preventDefault();
