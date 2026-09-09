@@ -250,6 +250,7 @@ const screens = {
   remedial: document.getElementById('remedialScreen'),
   match: document.getElementById('matchScreen'),
   confusable: document.getElementById('confusableScreen'),
+  sentence: document.getElementById('sentenceScreen'),
   novel: document.getElementById('novelScreen'),
   novelReader: document.getElementById('novelReaderScreen'),
   progress: document.getElementById('progressScreen'),
@@ -338,6 +339,13 @@ document.getElementById('backHomeBtn').addEventListener('click', () => {
     showScreen('confusable');
     return;
   }
+  if(resultContext === 'sentence'){
+    document.getElementById('sentenceGame').classList.add('hidden');
+    document.getElementById('sentenceLevelSelect').classList.remove('hidden');
+    refreshSentenceLevelSelectUI();
+    showScreen('sentence');
+    return;
+  }
   showScreen('home');
 });
 
@@ -348,6 +356,11 @@ document.getElementById('retryBtn').addEventListener('click', () => {
   }
   if(resultContext === 'confusable'){
     startConfusableQuiz(confusableState.level);
+    return;
+  }
+  if(resultContext === 'sentence'){
+    resetSentenceProgress(sentenceState.level);
+    startSentenceMode(sentenceState.level);
     return;
   }
   // "Lanjut Belajar": kembali ke level yang sama kalau masih ada sisa, kalau tidak ke home
@@ -365,6 +378,18 @@ function refreshHomeUI(){
     const totalPairs = Object.values(CONFUSABLE_PAIRS).reduce((sum, arr) => sum + arr.length, 0);
     const badge = document.getElementById('confusableBadge');
     if(badge) badge.textContent = totalPairs + ' pasang';
+  }
+
+  if(typeof loadSentenceProgress === 'function'){
+    const progress = loadSentenceProgress();
+    let doneCount = 0, totalCount = 0;
+    Object.keys(WORD_DATA).forEach(level => {
+      const total = WORD_DATA[level].length;
+      totalCount += total;
+      doneCount += Math.min(progress[level] || 0, total);
+    });
+    const sBadge = document.getElementById('sentenceBadge');
+    if(sBadge) sBadge.textContent = `${doneCount.toLocaleString('id-ID')}/${totalCount.toLocaleString('id-ID')}`;
   }
 
   Object.keys(WORD_DATA).forEach(level => {
@@ -2117,6 +2142,206 @@ document.getElementById('confusableBackBtn').addEventListener('click', () => {
 
 document.querySelectorAll('#confusableLevelSelect .confusable-level-card').forEach(card => {
   card.addEventListener('click', () => startConfusableQuiz(card.dataset.clevel));
+  card.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      card.click();
+    }
+  });
+});
+
+// ---------- Latihan Kalimat: hafalan lewat kalimat utuh, semua kata berurutan ----------
+// Konsepnya seperti flashcard remedial: kalimat dulu, tombol lihat arti, lalu lanjut.
+// Bedanya di sini SEMUA kata di level tersebut dilalui berurutan (bukan acak), tidak ada
+// yang dilewati, dan posisi terakhir tersimpan otomatis supaya bisa lanjut kapan saja.
+const SENTENCE_PROGRESS_KEY = 'belajarKata_sentence_progress_v1';
+
+let sentenceState = {
+  level: null,
+  words: [],
+  index: 0,
+  revealed: false
+};
+
+function loadSentenceProgress(){
+  try{
+    const raw = localStorage.getItem(SENTENCE_PROGRESS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function getSentenceProgressIndex(level){
+  const all = loadSentenceProgress();
+  return all[level] || 0;
+}
+function saveSentenceProgress(){
+  try{
+    const all = loadSentenceProgress();
+    all[sentenceState.level] = sentenceState.index;
+    localStorage.setItem(SENTENCE_PROGRESS_KEY, JSON.stringify(all));
+  }catch(e){/* abaikan */}
+}
+function markSentenceLevelCompleted(level){
+  try{
+    const all = loadSentenceProgress();
+    all[level] = (WORD_DATA[level] || []).length; // tandai sudah tuntas semua
+    localStorage.setItem(SENTENCE_PROGRESS_KEY, JSON.stringify(all));
+  }catch(e){/* abaikan */}
+}
+function resetSentenceProgress(level){
+  try{
+    const all = loadSentenceProgress();
+    all[level] = 0;
+    localStorage.setItem(SENTENCE_PROGRESS_KEY, JSON.stringify(all));
+  }catch(e){/* abaikan */}
+}
+
+function refreshSentenceLevelSelectUI(){
+  Object.keys(WORD_DATA).forEach(level => {
+    const el = document.getElementById('sentenceProgress' + level);
+    if(!el) return;
+    const total = WORD_DATA[level].length;
+    const idx = getSentenceProgressIndex(level);
+    if(idx >= total){
+      el.textContent = '✓ Semua kalimat selesai dibaca';
+    }else if(idx > 0){
+      el.textContent = `${idx}/${total} kata — lanjutkan`;
+    }else{
+      el.textContent = `0/${total} kata`;
+    }
+  });
+}
+
+// Nama kata di data ada yang punya angka pembeda atau keterangan dalam kurung
+// (mis. "do1", "second1 (unit of time)") — dibersihkan dulu supaya pas dicari
+// & ditampilkan di kartu jawaban.
+function cleanWordForDisplay(en){
+  return en.replace(/\s*\([^)]*\)/g, '').replace(/\d+$/, '').trim();
+}
+
+function highlightWordInSentence(sentence, en){
+  const clean = cleanWordForDisplay(en);
+  const escapedSentence = escapeHtml(sentence);
+  if(!clean) return escapedSentence;
+  const escapedForRegex = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`\\b(${escapedForRegex})\\b`, 'i');
+  return escapedSentence.replace(re, '<mark>$1</mark>');
+}
+
+function renderSentenceCard(){
+  sentenceState.revealed = false;
+  const word = sentenceState.words[sentenceState.index];
+  const sentence = (typeof EXAMPLE_SENTENCES !== 'undefined' &&
+    EXAMPLE_SENTENCES[sentenceState.level] &&
+    EXAMPLE_SENTENCES[sentenceState.level][word.en]) || null;
+
+  // jaga-jaga kalau ada kata yang datanya bolong — tetap lanjut ke kata berikutnya
+  // supaya alur belajar tidak macet, meskipun ini seharusnya tidak terjadi lagi
+  // karena semua kata sudah punya kalimat contoh.
+  if(!sentence){
+    if(sentenceState.index < sentenceState.words.length - 1){
+      sentenceState.index++;
+      renderSentenceCard();
+    }else{
+      finishSentenceMode();
+    }
+    return;
+  }
+
+  const chip = document.getElementById('sentenceLevelChip');
+  chip.textContent = sentenceState.level;
+  chip.className = 'level-chip ' + sentenceState.level.toLowerCase();
+  document.getElementById('sentenceProgressText').textContent =
+    `${sentenceState.index + 1}/${sentenceState.words.length}`;
+
+  document.getElementById('sentenceText').innerHTML = highlightWordInSentence(sentence, word.en);
+  document.getElementById('sentenceCard').dataset.sentence = sentence;
+
+  document.getElementById('sentenceWordEn').textContent = cleanWordForDisplay(word.en);
+  document.getElementById('sentenceWordId').textContent = word.id;
+  document.getElementById('sentenceAnswer').classList.add('hidden');
+
+  document.getElementById('sentenceRevealBtn').classList.remove('hidden');
+  document.getElementById('sentenceNextBtn').classList.remove('show');
+
+  saveSentenceProgress();
+}
+
+document.getElementById('sentenceRevealBtn').addEventListener('click', () => {
+  sentenceState.revealed = true;
+  document.getElementById('sentenceAnswer').classList.remove('hidden');
+  document.getElementById('sentenceRevealBtn').classList.add('hidden');
+  document.getElementById('sentenceNextBtn').classList.add('show');
+});
+
+document.getElementById('sentenceSpeakBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const sentence = document.getElementById('sentenceCard').dataset.sentence;
+  if(sentence) speak(sentence, 'en-US');
+});
+
+document.getElementById('sentenceNextBtn').addEventListener('click', () => {
+  if(sentenceState.index >= sentenceState.words.length - 1){
+    finishSentenceMode();
+  }else{
+    sentenceState.index++;
+    renderSentenceCard();
+  }
+});
+
+function startSentenceMode(level){
+  stopReading();
+  stopNovelReading();
+
+  const words = WORD_DATA[level] || [];
+  const rawIdx = getSentenceProgressIndex(level);
+  const startIdx = rawIdx >= words.length ? 0 : rawIdx;
+
+  sentenceState = { level, words, index: startIdx, revealed: false };
+
+  document.getElementById('sentenceLevelSelect').classList.add('hidden');
+  document.getElementById('sentenceGame').classList.remove('hidden');
+  showScreen('sentence');
+
+  if(words.length === 0){
+    document.getElementById('sentenceGame').classList.add('hidden');
+    document.getElementById('sentenceLevelSelect').classList.remove('hidden');
+    return;
+  }
+  renderSentenceCard();
+}
+
+function finishSentenceMode(){
+  resultContext = 'sentence';
+  window.speechSynthesis && window.speechSynthesis.cancel();
+  markSentenceLevelCompleted(sentenceState.level);
+
+  document.getElementById('resultStats').classList.add('hidden');
+  document.getElementById('resultEmoji').textContent = '📚';
+  document.getElementById('resultTitle').textContent = 'Semua Kalimat Selesai Dibaca!';
+  document.getElementById('resultSubtitle').textContent =
+    `Kamu sudah membaca semua ${sentenceState.words.length} kalimat di level ${sentenceState.level}, tidak ada yang terlewat. Mantap!`;
+  document.getElementById('retryBtn').textContent = '🔁 Ulangi dari Awal';
+  document.getElementById('backHomeBtn').textContent = '📝 Pilih Level Lain';
+
+  showScreen('result');
+}
+
+function openSentenceScreen(){
+  stopReading();
+  stopNovelReading();
+  document.getElementById('sentenceGame').classList.add('hidden');
+  document.getElementById('sentenceLevelSelect').classList.remove('hidden');
+  refreshSentenceLevelSelectUI();
+  showScreen('sentence');
+}
+
+document.getElementById('sentenceBtn').addEventListener('click', openSentenceScreen);
+document.getElementById('sentenceBackToHomeBtn').addEventListener('click', () => {
+  showScreen('home');
+});
+
+document.querySelectorAll('#sentenceLevelSelect .sentence-level-card').forEach(card => {
+  card.addEventListener('click', () => startSentenceMode(card.dataset.slevel));
   card.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' || e.key === ' '){
       e.preventDefault();

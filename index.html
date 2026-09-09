@@ -222,6 +222,10 @@
     background:linear-gradient(135deg,var(--b1),var(--b2));
     box-shadow:0 6px 16px rgba(93,120,189,0.3);
   }
+  .sentence-entry-btn{
+    background:linear-gradient(135deg,var(--a2),var(--a2-deep));
+    box-shadow:0 6px 16px rgba(77,154,131,0.3);
+  }
   .remedial-btn.empty{
     background:var(--surface-soft);
     color:var(--ink-soft);
@@ -876,6 +880,63 @@
   .confusable-choice-btn.correct{border-color:var(--good); background:var(--good-bg); color:var(--good);}
   .confusable-choice-btn.wrong{border-color:var(--bad); background:var(--bad-bg); color:var(--bad);}
 
+  /* ---------- LATIHAN KALIMAT ---------- */
+  .sentence-level-progress{
+    font-size: clamp(9.5px,1.4vh,11px);
+    color:rgba(255,255,255,0.85);
+    margin-top:2px;
+  }
+  .sentence-game{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .sentence-flashcard{
+    position:relative;
+  }
+  .sentence-text{
+    font-size: clamp(16px, 3vh, 21px);
+    font-weight:700;
+    line-height:1.5;
+    padding: 0 clamp(4px,1vw,10px);
+  }
+  .sentence-text mark{
+    background:none;
+    color:var(--gold-deep);
+    text-decoration:underline;
+    text-decoration-thickness:2px;
+    text-underline-offset:3px;
+  }
+  html[data-theme="comfort"] .sentence-text mark{color:var(--gold);}
+  .sentence-answer{
+    margin-top: clamp(4px,1vh,8px);
+    padding: clamp(8px,1.5vh,12px) clamp(12px,2vw,16px);
+    background:var(--surface-soft);
+    border-radius:12px;
+    font-size: clamp(13px,2vh,15px);
+    color:var(--ink-soft);
+  }
+  .sentence-answer b{color:var(--ink); font-size:1.05em;}
+
+  .reveal-btn{
+    flex-shrink:0;
+    width:100%;
+    margin-top: clamp(8px,1.6vh,14px);
+    padding: clamp(10px, 1.8vh, 14px);
+    border:none;
+    border-radius:14px;
+    background:linear-gradient(135deg,var(--a2),var(--a2-deep));
+    color:#fff;
+    font-weight:700;
+    font-size: clamp(12.5px, 2vh, 15px);
+    font-family:inherit;
+    cursor:pointer;
+    box-shadow:0 6px 14px rgba(77,154,131,0.3);
+  }
+  .reveal-btn:active{transform:scale(0.98);}
+  .reveal-btn.hidden{display:none;}
+
   /* ---------- NOVEL LIBRARY & IMMERSIVE READER (buku digital coklat hangat, ramah mata) ---------- */
   :root{
     --book-page-bg:#e7d4ac;
@@ -1311,6 +1372,11 @@
       <span class="badge" id="confusableBadge">28 pasang</span>
     </button>
 
+    <button class="remedial-btn sentence-entry-btn" id="sentenceBtn">
+      <span>📝 Latihan Kalimat</span>
+      <span class="badge" id="sentenceBadge">0/3.308</span>
+    </button>
+
     <div class="level-grid">
       <div class="level-card a1" data-level="A1" tabindex="0" role="button">
         <div class="blob"></div>
@@ -1546,6 +1612,71 @@
 
       <div class="feedback-banner" id="confusableFeedback"></div>
       <button class="next-btn" id="confusableNextBtn">Lanjut →</button>
+    </div>
+  </section>
+
+  <!-- ============ LATIHAN KALIMAT (hafalan lewat kalimat utuh, semua kata berurutan) ============ -->
+  <section id="sentenceScreen" class="screen hidden">
+    <div class="novel-header">
+      <button class="icon-btn" id="sentenceBackToHomeBtn" title="Kembali">←</button>
+      <div class="novel-title-wrap">
+        <div class="novel-title">📝 Latihan Kalimat</div>
+        <div class="novel-page-info">Hafalkan lewat kalimat utuh, biar terbiasa strukturnya</div>
+      </div>
+      <span class="reader-overlay-spacer"></span>
+    </div>
+
+    <div id="sentenceLevelSelect">
+      <p class="match-intro">Pilih level. Semua kata dilalui berurutan, tidak ada yang terlewat — progresmu otomatis tersimpan.</p>
+      <div class="level-grid">
+        <div class="level-card a1 sentence-level-card" data-slevel="A1" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">A1</div>
+          <div class="name">Pemula</div>
+          <div class="sentence-level-progress" id="sentenceProgressA1">0/900 kata</div>
+        </div>
+        <div class="level-card a2 sentence-level-card" data-slevel="A2" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">A2</div>
+          <div class="name">Dasar Lanjutan</div>
+          <div class="sentence-level-progress" id="sentenceProgressA2">0/872 kata</div>
+        </div>
+        <div class="level-card b1 sentence-level-card" data-slevel="B1" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">B1</div>
+          <div class="name">Menengah</div>
+          <div class="sentence-level-progress" id="sentenceProgressB1">0/809 kata</div>
+        </div>
+        <div class="level-card b2 sentence-level-card" data-slevel="B2" tabindex="0" role="button">
+          <div class="blob"></div>
+          <div class="tag">B2</div>
+          <div class="name">Menengah Atas</div>
+          <div class="sentence-level-progress" id="sentenceProgressB2">0/727 kata</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="sentenceGame" class="sentence-game hidden">
+      <div class="match-score-row">
+        <span class="level-chip" id="sentenceLevelChip">A1</span>
+        <span class="match-score-text" id="sentenceProgressText">1/900</span>
+      </div>
+
+      <div class="flashcard-wrap">
+        <div class="flashcard sentence-flashcard" id="sentenceCard">
+          <div class="flash-label">Baca &amp; pahami kalimatnya</div>
+          <div class="sentence-text" id="sentenceText"></div>
+          <button class="speak-btn small" id="sentenceSpeakBtn" title="Dengarkan kalimat">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06c1.48-.74 2.5-2.26 2.5-4.03zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          </button>
+          <div class="sentence-answer hidden" id="sentenceAnswer">
+            <b id="sentenceWordEn">word</b> — <span id="sentenceWordId">arti</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="reveal-btn" id="sentenceRevealBtn">👁️ Lihat Arti</button>
+      <button class="next-btn" id="sentenceNextBtn">Lanjut →</button>
     </div>
   </section>
 
