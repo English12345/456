@@ -378,13 +378,12 @@ function refreshHomeUI(){
     if(badge) badge.textContent = totalPairs + ' pasang';
   }
 
-  if(typeof loadSentenceProgress === 'function'){
-    const progress = loadSentenceProgress();
+  if(typeof getSentenceProgressIndex === 'function'){
     let doneCount = 0, totalCount = 0;
     Object.keys(WORD_DATA).forEach(level => {
       const total = WORD_DATA[level].length;
       totalCount += total;
-      doneCount += Math.min(progress[level] || 0, total);
+      doneCount += Math.min(getSentenceProgressIndex(level, 'all'), total);
     });
     const sBadge = document.getElementById('sentenceBadge');
     if(sBadge) sBadge.textContent = `${doneCount.toLocaleString('id-ID')}/${totalCount.toLocaleString('id-ID')}`;
@@ -2149,12 +2148,12 @@ document.querySelectorAll('#confusableLevelSelect .confusable-level-card').forEa
 });
 
 // ---------- Latihan Kalimat: hafalan lewat kalimat utuh, semua kata berurutan ----------
-// Konsepnya seperti flashcard remedial: kalimat dulu, tombol lihat arti, lalu tandai
-// sendiri seberapa sulit kata itu (Mudah/Sedang/Sulit). Penyortiran ini manual, ditentukan
-// pengguna sendiri sambil belajar — supaya saat mengulang nanti bisa fokus ke kelompok
-// Sedang/Sulit saja tanpa harus mengulang yang sudah dianggap Mudah. SEMUA kata di level
-// tersebut dilalui berurutan (bukan acak), tidak ada yang dilewati, dan posisi terakhir
-// tersimpan otomatis per (level, kelompok) supaya bisa lanjut kapan saja.
+// Kata & artinya langsung tampil (tanpa tombol "lihat arti") supaya proses sortir cepat.
+// Tombol tandai kesulitan (😊/😐/😰) ada kompak di atas kartu — menandai TIDAK otomatis
+// pindah kartu, supaya tidak mengganggu alur; pindah kartu pakai tombol "Lanjut" terpisah.
+// Tombol "Lihat Kalimat" opsional kalau perlu konteks kalimat contohnya. SEMUA kata di
+// level tersebut dilalui berurutan (bukan acak), tidak ada yang dilewati, dan posisi
+// terakhir tersimpan otomatis per (level, kelompok) supaya bisa lanjut kapan saja.
 const SENTENCE_PROGRESS_KEY = 'belajarKata_sentence_progress_v1';
 const SENTENCE_DIFFICULTY_KEY = 'belajarKata_sentence_difficulty_v1';
 const SENTENCE_FILTER_LABELS = {
@@ -2169,8 +2168,7 @@ let sentenceState = {
   level: null,
   filter: 'all',
   words: [],
-  index: 0,
-  revealed: false
+  index: 0
 };
 
 // ---- penyimpanan progres baca, per kombinasi level+kelompok kesulitan ----
@@ -2224,7 +2222,11 @@ function setWordDifficulty(level, en, difficulty){
   try{
     const map = loadDifficultyMap();
     if(!map[level]) map[level] = {};
-    map[level][en] = difficulty;
+    if(difficulty){
+      map[level][en] = difficulty;
+    }else{
+      delete map[level][en];
+    }
     localStorage.setItem(SENTENCE_DIFFICULTY_KEY, JSON.stringify(map));
   }catch(e){/* abaikan */}
 }
@@ -2267,7 +2269,7 @@ function refreshSentenceLevelSelectUI(){
 
 // Nama kata di data ada yang punya angka pembeda atau keterangan dalam kurung
 // (mis. "do1", "second1 (unit of time)") — dibersihkan dulu supaya pas dicari
-// & ditampilkan di kartu jawaban.
+// & ditampilkan di kartu.
 function cleanWordForDisplay(en){
   return en.replace(/\s*\([^)]*\)/g, '').replace(/\d+$/, '').trim();
 }
@@ -2281,8 +2283,15 @@ function highlightWordInSentence(sentence, en){
   return escapedSentence.replace(re, '<mark>$1</mark>');
 }
 
+function updateSentenceTagChips(){
+  const word = sentenceState.words[sentenceState.index];
+  const currentTag = getWordDifficulty(sentenceState.level, word.en);
+  document.getElementById('sentenceTagEasyBtn').classList.toggle('active', currentTag === 'easy');
+  document.getElementById('sentenceTagMediumBtn').classList.toggle('active', currentTag === 'medium');
+  document.getElementById('sentenceTagHardBtn').classList.toggle('active', currentTag === 'hard');
+}
+
 function renderSentenceCard(){
-  sentenceState.revealed = false;
   const word = sentenceState.words[sentenceState.index];
   const sentence = (typeof EXAMPLE_SENTENCES !== 'undefined' &&
     EXAMPLE_SENTENCES[sentenceState.level] &&
@@ -2307,30 +2316,25 @@ function renderSentenceCard(){
   document.getElementById('sentenceProgressText').textContent =
     `${sentenceState.index + 1}/${sentenceState.words.length}`;
 
-  document.getElementById('sentenceText').innerHTML = highlightWordInSentence(sentence, word.en);
-  document.getElementById('sentenceCard').dataset.sentence = sentence;
-
+  // kata & artinya tampil langsung, tidak perlu tombol reveal lagi
   document.getElementById('sentenceWordEn').textContent = cleanWordForDisplay(word.en);
   document.getElementById('sentenceWordId').textContent = word.id;
-  document.getElementById('sentenceAnswer').classList.add('hidden');
 
-  // tampilkan tanda kesulitan yang sudah pernah dipilih untuk kata ini (kalau ada)
-  const currentTag = getWordDifficulty(sentenceState.level, word.en);
-  document.getElementById('sentenceTagEasyBtn').classList.toggle('active', currentTag === 'easy');
-  document.getElementById('sentenceTagMediumBtn').classList.toggle('active', currentTag === 'medium');
-  document.getElementById('sentenceTagHardBtn').classList.toggle('active', currentTag === 'hard');
+  // kalimat contoh disembunyikan dulu, baru tampil kalau tombol "Lihat Kalimat" ditekan
+  document.getElementById('sentenceText').innerHTML = highlightWordInSentence(sentence, word.en);
+  document.getElementById('sentenceCard').dataset.sentence = sentence;
+  document.getElementById('sentenceText').classList.add('hidden');
+  document.getElementById('sentenceSpeakBtn').classList.add('hidden');
+  document.getElementById('sentenceViewBtn').classList.remove('hidden');
 
-  document.getElementById('sentenceRevealBtn').classList.remove('hidden');
-  document.getElementById('sentenceTagRow').classList.add('hidden');
-
+  updateSentenceTagChips();
   saveSentenceProgress();
 }
 
-document.getElementById('sentenceRevealBtn').addEventListener('click', () => {
-  sentenceState.revealed = true;
-  document.getElementById('sentenceAnswer').classList.remove('hidden');
-  document.getElementById('sentenceRevealBtn').classList.add('hidden');
-  document.getElementById('sentenceTagRow').classList.remove('hidden');
+document.getElementById('sentenceViewBtn').addEventListener('click', () => {
+  document.getElementById('sentenceText').classList.remove('hidden');
+  document.getElementById('sentenceSpeakBtn').classList.remove('hidden');
+  document.getElementById('sentenceViewBtn').classList.add('hidden');
 });
 
 document.getElementById('sentenceSpeakBtn').addEventListener('click', (e) => {
@@ -2347,16 +2351,19 @@ function advanceSentence(){
     renderSentenceCard();
   }
 }
+document.getElementById('sentenceNextBtn').addEventListener('click', advanceSentence);
 
-function tagCurrentWordAndAdvance(difficulty){
+// Menandai kesulitan TIDAK otomatis pindah kartu — supaya tidak mengganggu proses.
+// Tap tombol yang sama lagi untuk membatalkan tanda (kembali jadi belum disortir).
+function toggleWordDifficulty(difficulty){
   const word = sentenceState.words[sentenceState.index];
-  setWordDifficulty(sentenceState.level, word.en, difficulty);
-  advanceSentence();
+  const current = getWordDifficulty(sentenceState.level, word.en);
+  setWordDifficulty(sentenceState.level, word.en, current === difficulty ? null : difficulty);
+  updateSentenceTagChips();
 }
-
-document.getElementById('sentenceTagEasyBtn').addEventListener('click', () => tagCurrentWordAndAdvance('easy'));
-document.getElementById('sentenceTagMediumBtn').addEventListener('click', () => tagCurrentWordAndAdvance('medium'));
-document.getElementById('sentenceTagHardBtn').addEventListener('click', () => tagCurrentWordAndAdvance('hard'));
+document.getElementById('sentenceTagEasyBtn').addEventListener('click', () => toggleWordDifficulty('easy'));
+document.getElementById('sentenceTagMediumBtn').addEventListener('click', () => toggleWordDifficulty('medium'));
+document.getElementById('sentenceTagHardBtn').addEventListener('click', () => toggleWordDifficulty('hard'));
 
 function startSentenceMode(level, filter){
   stopReading();
@@ -2366,7 +2373,7 @@ function startSentenceMode(level, filter){
   const rawIdx = getSentenceProgressIndex(level, filter);
   const startIdx = rawIdx >= words.length ? 0 : rawIdx;
 
-  sentenceState = { level, filter, words, index: startIdx, revealed: false };
+  sentenceState = { level, filter, words, index: startIdx };
 
   document.getElementById('sentenceDifficultySelect').classList.add('hidden');
   document.getElementById('sentenceGame').classList.remove('hidden');
@@ -2450,7 +2457,25 @@ function openSentenceScreen(){
 }
 
 document.getElementById('sentenceBtn').addEventListener('click', openSentenceScreen);
+
+// Tombol kembali di header: mundur SATU langkah sesuai posisi saat ini
+// (kartu belajar -> pilih kelompok -> pilih level -> baru ke beranda),
+// bukan langsung lompat ke beranda dari mana pun.
 document.getElementById('sentenceBackToHomeBtn').addEventListener('click', () => {
+  const inGame = !document.getElementById('sentenceGame').classList.contains('hidden');
+  const inDiffSelect = !document.getElementById('sentenceDifficultySelect').classList.contains('hidden');
+
+  if(inGame){
+    document.getElementById('sentenceGame').classList.add('hidden');
+    openSentenceDifficultySelect(sentenceState.level);
+    return;
+  }
+  if(inDiffSelect){
+    document.getElementById('sentenceDifficultySelect').classList.add('hidden');
+    document.getElementById('sentenceLevelSelect').classList.remove('hidden');
+    refreshSentenceLevelSelectUI();
+    return;
+  }
   showScreen('home');
 });
 

@@ -895,12 +895,57 @@
   .sentence-flashcard{
     position:relative;
   }
-  .sentence-text{
-    font-size: clamp(16px, 3vh, 21px);
-    font-weight:700;
-    line-height:1.5;
-    padding: 0 clamp(4px,1vw,10px);
+
+  /* ---- tombol tandai kesulitan, kompak di bagian atas kartu, tidak mengganggu alur ---- */
+  .sentence-tag-row-top{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-bottom: clamp(6px,1.2vh,10px);
   }
+  .sentence-tag-chip{
+    width: clamp(32px,5vh,38px);
+    height: clamp(32px,5vh,38px);
+    border-radius:50%;
+    border:2px solid var(--border-soft);
+    background:var(--surface-soft);
+    font-size: clamp(15px,2.4vh,18px);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .sentence-tag-chip:active{transform:scale(0.9);}
+  .sentence-tag-chip.tag-easy.active{border-color:var(--good); background:var(--good-bg);}
+  .sentence-tag-chip.tag-medium.active{border-color:var(--remedial); background:rgba(217,151,63,0.15);}
+  .sentence-tag-chip.tag-hard.active{border-color:var(--bad); background:var(--bad-bg);}
+
+  /* ---- kata & arti, tampil langsung tanpa perlu tombol reveal ---- */
+  .sentence-word-main{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    margin-top: clamp(2px,0.6vh,6px);
+  }
+  .sentence-word-main b{
+    font-size: clamp(20px, 3.6vh, 26px);
+    color:var(--ink);
+  }
+  .sentence-word-main span{
+    font-size: clamp(13px, 2vh, 15px);
+    color:var(--ink-soft);
+  }
+
+  /* ---- kalimat contoh, disembunyikan sampai "Lihat Kalimat" ditekan ---- */
+  .sentence-text{
+    font-size: clamp(14px, 2.6vh, 17px);
+    font-weight:600;
+    line-height:1.55;
+    padding: 0 clamp(4px,1vw,10px);
+    margin-top: clamp(10px,1.8vh,16px);
+    color:var(--ink);
+  }
+  .sentence-text.hidden{display:none;}
   .sentence-text mark{
     background:none;
     color:var(--gold-deep);
@@ -909,33 +954,43 @@
     text-underline-offset:3px;
   }
   html[data-theme="comfort"] .sentence-text mark{color:var(--gold);}
-  .sentence-answer{
-    margin-top: clamp(4px,1vh,8px);
-    padding: clamp(8px,1.5vh,12px) clamp(12px,2vw,16px);
-    background:var(--surface-soft);
-    border-radius:12px;
-    font-size: clamp(13px,2vh,15px);
-    color:var(--ink-soft);
-  }
-  .sentence-answer b{color:var(--ink); font-size:1.05em;}
+  .speak-btn.small.hidden{display:none;}
 
-  .reveal-btn{
+  /* ---- dua tombol utama: Lihat Kalimat & Lanjut, selalu tersedia bersamaan ---- */
+  .sentence-action-row{
     flex-shrink:0;
-    width:100%;
+    display:flex;
+    gap:10px;
     margin-top: clamp(8px,1.6vh,14px);
-    padding: clamp(10px, 1.8vh, 14px);
+  }
+  .sentence-view-btn{
+    flex:1;
+    border:2px solid var(--border-soft);
+    background:var(--card);
+    color:var(--ink);
+    border-radius:14px;
+    padding: clamp(10px, 1.8vh, 14px) 8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size: clamp(12px, 1.9vh, 14px);
+    cursor:pointer;
+  }
+  .sentence-view-btn:active{transform:scale(0.97);}
+  .sentence-view-btn.hidden{display:none;}
+  .sentence-go-next-btn{
+    flex:1.3;
     border:none;
     border-radius:14px;
+    padding: clamp(10px, 1.8vh, 14px) 8px;
     background:linear-gradient(135deg,var(--a2),var(--a2-deep));
     color:#fff;
     font-weight:700;
-    font-size: clamp(12.5px, 2vh, 15px);
     font-family:inherit;
+    font-size: clamp(12.5px, 2vh, 15px);
     cursor:pointer;
     box-shadow:0 6px 14px rgba(77,154,131,0.3);
   }
-  .reveal-btn:active{transform:scale(0.98);}
-  .reveal-btn.hidden{display:none;}
+  .sentence-go-next-btn:active{transform:scale(0.98);}
 
   /* ---- pemilihan kelompok kesulitan (mudah/sedang/sulit) ---- */
   .sentence-diff-header{
@@ -991,45 +1046,6 @@
     width:100%;
     margin-top: clamp(10px,1.8vh,16px);
   }
-
-  /* ---- tombol tandai tingkat kesulitan di kartu kalimat ---- */
-  .sentence-tag-row{
-    flex-shrink:0;
-    margin-top: clamp(8px,1.6vh,14px);
-  }
-  .sentence-tag-row.hidden{display:none;}
-  .sentence-tag-hint{
-    text-align:center;
-    font-size: clamp(10.5px,1.6vh,12px);
-    color:var(--ink-soft);
-    margin-bottom:6px;
-  }
-  .sentence-tag-btns{
-    display:flex;
-    gap:8px;
-  }
-  .sentence-tag-btn{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:2px;
-    border:2px solid var(--border-soft);
-    background:var(--card);
-    border-radius:14px;
-    padding: clamp(9px,1.6vh,13px) 4px;
-    font-size: clamp(18px,2.8vh,22px);
-    cursor:pointer;
-    font-family:inherit;
-  }
-  .sentence-tag-btn span{font-size: clamp(10px,1.5vh,11.5px); font-weight:700; color:var(--ink-soft);}
-  .sentence-tag-btn:active{transform:scale(0.95);}
-  .sentence-tag-btn.tag-easy.active{border-color:var(--good); background:var(--good-bg);}
-  .sentence-tag-btn.tag-easy.active span{color:var(--good);}
-  .sentence-tag-btn.tag-medium.active{border-color:var(--remedial); background:rgba(217,151,63,0.12);}
-  .sentence-tag-btn.tag-medium.active span{color:var(--remedial-deep);}
-  .sentence-tag-btn.tag-hard.active{border-color:var(--bad); background:var(--bad-bg);}
-  .sentence-tag-btn.tag-hard.active span{color:var(--bad);}
 
   /* ---------- NOVEL LIBRARY & IMMERSIVE READER (buku digital coklat hangat, ramah mata) ---------- */
   :root{
@@ -1794,26 +1810,28 @@
 
       <div class="flashcard-wrap">
         <div class="flashcard sentence-flashcard" id="sentenceCard">
-          <div class="flash-label">Baca &amp; pahami kalimatnya</div>
-          <div class="sentence-text" id="sentenceText"></div>
-          <button class="speak-btn small" id="sentenceSpeakBtn" title="Dengarkan kalimat">
+          <div class="sentence-tag-row-top">
+            <button class="sentence-tag-chip tag-easy" id="sentenceTagEasyBtn" title="Tandai Mudah">😊</button>
+            <button class="sentence-tag-chip tag-medium" id="sentenceTagMediumBtn" title="Tandai Sedang">😐</button>
+            <button class="sentence-tag-chip tag-hard" id="sentenceTagHardBtn" title="Tandai Sulit">😰</button>
+          </div>
+
+          <div class="flash-label">Kata &amp; Artinya</div>
+          <div class="sentence-word-main">
+            <b id="sentenceWordEn">word</b>
+            <span id="sentenceWordId">arti</span>
+          </div>
+
+          <div class="sentence-text hidden" id="sentenceText"></div>
+          <button class="speak-btn small hidden" id="sentenceSpeakBtn" title="Dengarkan kalimat">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06c1.48-.74 2.5-2.26 2.5-4.03zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
           </button>
-          <div class="sentence-answer hidden" id="sentenceAnswer">
-            <b id="sentenceWordEn">word</b> — <span id="sentenceWordId">arti</span>
-          </div>
         </div>
       </div>
 
-      <button class="reveal-btn" id="sentenceRevealBtn">👁️ Lihat Arti</button>
-
-      <div class="sentence-tag-row hidden" id="sentenceTagRow">
-        <div class="sentence-tag-hint">Menurutmu kata ini seberapa sulit?</div>
-        <div class="sentence-tag-btns">
-          <button class="sentence-tag-btn tag-easy" id="sentenceTagEasyBtn">😊<span>Mudah</span></button>
-          <button class="sentence-tag-btn tag-medium" id="sentenceTagMediumBtn">😐<span>Sedang</span></button>
-          <button class="sentence-tag-btn tag-hard" id="sentenceTagHardBtn">😰<span>Sulit</span></button>
-        </div>
+      <div class="sentence-action-row">
+        <button class="sentence-view-btn" id="sentenceViewBtn">📄 Lihat Kalimat</button>
+        <button class="sentence-go-next-btn" id="sentenceNextBtn">Lanjut →</button>
       </div>
     </div>
   </section>
