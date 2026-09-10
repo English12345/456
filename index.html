@@ -937,6 +937,100 @@
   .reveal-btn:active{transform:scale(0.98);}
   .reveal-btn.hidden{display:none;}
 
+  /* ---- pemilihan kelompok kesulitan (mudah/sedang/sulit) ---- */
+  .sentence-diff-header{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:6px;
+  }
+  .sentence-diff-title{
+    font-weight:700;
+    font-size: clamp(13px,2vh,15px);
+  }
+  .sentence-diff-options{
+    flex-shrink:0;
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+    margin-top: clamp(6px,1.2vh,10px);
+  }
+  .sentence-diff-btn{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    width:100%;
+    border:none;
+    border-radius:14px;
+    padding: clamp(11px,1.9vh,15px);
+    background:var(--card);
+    box-shadow:var(--shadow);
+    cursor:pointer;
+    font-family:inherit;
+    text-align:left;
+  }
+  .sentence-diff-btn:active{transform:scale(0.98);}
+  .sentence-diff-btn.disabled{opacity:0.4; cursor:default;}
+  .sentence-diff-btn .diff-icon{font-size: clamp(20px,3vh,26px); flex-shrink:0;}
+  .sentence-diff-btn .diff-label{flex:1; font-weight:700; font-size: clamp(13px,2vh,15px); color:var(--ink);}
+  .sentence-diff-btn .diff-count{
+    flex-shrink:0;
+    font-size: clamp(11px,1.7vh,12.5px);
+    font-weight:700;
+    color:var(--ink-soft);
+    background:var(--surface-soft);
+    padding:4px 10px;
+    border-radius:100px;
+  }
+  .sentence-diff-btn.diff-easy .diff-count{background:var(--good-bg); color:var(--good);}
+  .sentence-diff-btn.diff-medium .diff-count{background:rgba(217,151,63,0.15); color:var(--remedial-deep);}
+  .sentence-diff-btn.diff-hard .diff-count{background:var(--bad-bg); color:var(--bad);}
+  .sentence-diff-back-btn{
+    flex-shrink:0;
+    width:100%;
+    margin-top: clamp(10px,1.8vh,16px);
+  }
+
+  /* ---- tombol tandai tingkat kesulitan di kartu kalimat ---- */
+  .sentence-tag-row{
+    flex-shrink:0;
+    margin-top: clamp(8px,1.6vh,14px);
+  }
+  .sentence-tag-row.hidden{display:none;}
+  .sentence-tag-hint{
+    text-align:center;
+    font-size: clamp(10.5px,1.6vh,12px);
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .sentence-tag-btns{
+    display:flex;
+    gap:8px;
+  }
+  .sentence-tag-btn{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    border:2px solid var(--border-soft);
+    background:var(--card);
+    border-radius:14px;
+    padding: clamp(9px,1.6vh,13px) 4px;
+    font-size: clamp(18px,2.8vh,22px);
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .sentence-tag-btn span{font-size: clamp(10px,1.5vh,11.5px); font-weight:700; color:var(--ink-soft);}
+  .sentence-tag-btn:active{transform:scale(0.95);}
+  .sentence-tag-btn.tag-easy.active{border-color:var(--good); background:var(--good-bg);}
+  .sentence-tag-btn.tag-easy.active span{color:var(--good);}
+  .sentence-tag-btn.tag-medium.active{border-color:var(--remedial); background:rgba(217,151,63,0.12);}
+  .sentence-tag-btn.tag-medium.active span{color:var(--remedial-deep);}
+  .sentence-tag-btn.tag-hard.active{border-color:var(--bad); background:var(--bad-bg);}
+  .sentence-tag-btn.tag-hard.active span{color:var(--bad);}
+
   /* ---------- NOVEL LIBRARY & IMMERSIVE READER (buku digital coklat hangat, ramah mata) ---------- */
   :root{
     --book-page-bg:#e7d4ac;
@@ -1656,6 +1750,42 @@
       </div>
     </div>
 
+    <div id="sentenceDifficultySelect" class="hidden">
+      <div class="sentence-diff-header">
+        <span class="level-chip" id="sentenceDiffLevelChip">A1</span>
+        <span class="sentence-diff-title">Mau latihan kelompok yang mana?</span>
+      </div>
+      <p class="match-intro">Pengelompokan ini kamu tentukan sendiri sambil belajar — jadi nanti bisa fokus ulang ke yang Sedang/Sulit saja tanpa mengulang yang Mudah.</p>
+      <div class="sentence-diff-options">
+        <button class="sentence-diff-btn" data-filter="all">
+          <span class="diff-icon">🔀</span>
+          <span class="diff-label">Semua Kata</span>
+          <span class="diff-count" id="diffCountAll">0</span>
+        </button>
+        <button class="sentence-diff-btn diff-easy" data-filter="easy">
+          <span class="diff-icon">😊</span>
+          <span class="diff-label">Mudah</span>
+          <span class="diff-count" id="diffCountEasy">0</span>
+        </button>
+        <button class="sentence-diff-btn diff-medium" data-filter="medium">
+          <span class="diff-icon">😐</span>
+          <span class="diff-label">Sedang</span>
+          <span class="diff-count" id="diffCountMedium">0</span>
+        </button>
+        <button class="sentence-diff-btn diff-hard" data-filter="hard">
+          <span class="diff-icon">😰</span>
+          <span class="diff-label">Sulit</span>
+          <span class="diff-count" id="diffCountHard">0</span>
+        </button>
+        <button class="sentence-diff-btn diff-unsorted" data-filter="unsorted">
+          <span class="diff-icon">❓</span>
+          <span class="diff-label">Belum Disortir</span>
+          <span class="diff-count" id="diffCountUnsorted">0</span>
+        </button>
+      </div>
+      <button class="giveup-btn sentence-diff-back-btn" id="sentenceDiffBackBtn">← Pilih level lain</button>
+    </div>
+
     <div id="sentenceGame" class="sentence-game hidden">
       <div class="match-score-row">
         <span class="level-chip" id="sentenceLevelChip">A1</span>
@@ -1676,7 +1806,15 @@
       </div>
 
       <button class="reveal-btn" id="sentenceRevealBtn">👁️ Lihat Arti</button>
-      <button class="next-btn" id="sentenceNextBtn">Lanjut →</button>
+
+      <div class="sentence-tag-row hidden" id="sentenceTagRow">
+        <div class="sentence-tag-hint">Menurutmu kata ini seberapa sulit?</div>
+        <div class="sentence-tag-btns">
+          <button class="sentence-tag-btn tag-easy" id="sentenceTagEasyBtn">😊<span>Mudah</span></button>
+          <button class="sentence-tag-btn tag-medium" id="sentenceTagMediumBtn">😐<span>Sedang</span></button>
+          <button class="sentence-tag-btn tag-hard" id="sentenceTagHardBtn">😰<span>Sulit</span></button>
+        </div>
+      </div>
     </div>
   </section>
 

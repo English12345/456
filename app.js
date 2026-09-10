@@ -341,9 +341,7 @@ document.getElementById('backHomeBtn').addEventListener('click', () => {
   }
   if(resultContext === 'sentence'){
     document.getElementById('sentenceGame').classList.add('hidden');
-    document.getElementById('sentenceLevelSelect').classList.remove('hidden');
-    refreshSentenceLevelSelectUI();
-    showScreen('sentence');
+    openSentenceDifficultySelect(sentenceState.level);
     return;
   }
   showScreen('home');
@@ -359,8 +357,8 @@ document.getElementById('retryBtn').addEventListener('click', () => {
     return;
   }
   if(resultContext === 'sentence'){
-    resetSentenceProgress(sentenceState.level);
-    startSentenceMode(sentenceState.level);
+    resetSentenceProgress(sentenceState.level, sentenceState.filter);
+    startSentenceMode(sentenceState.level, sentenceState.filter);
     return;
   }
   // "Lanjut Belajar": kembali ke level yang sama kalau masih ada sisa, kalau tidak ke home
@@ -2151,48 +2149,104 @@ document.querySelectorAll('#confusableLevelSelect .confusable-level-card').forEa
 });
 
 // ---------- Latihan Kalimat: hafalan lewat kalimat utuh, semua kata berurutan ----------
-// Konsepnya seperti flashcard remedial: kalimat dulu, tombol lihat arti, lalu lanjut.
-// Bedanya di sini SEMUA kata di level tersebut dilalui berurutan (bukan acak), tidak ada
-// yang dilewati, dan posisi terakhir tersimpan otomatis supaya bisa lanjut kapan saja.
+// Konsepnya seperti flashcard remedial: kalimat dulu, tombol lihat arti, lalu tandai
+// sendiri seberapa sulit kata itu (Mudah/Sedang/Sulit). Penyortiran ini manual, ditentukan
+// pengguna sendiri sambil belajar — supaya saat mengulang nanti bisa fokus ke kelompok
+// Sedang/Sulit saja tanpa harus mengulang yang sudah dianggap Mudah. SEMUA kata di level
+// tersebut dilalui berurutan (bukan acak), tidak ada yang dilewati, dan posisi terakhir
+// tersimpan otomatis per (level, kelompok) supaya bisa lanjut kapan saja.
 const SENTENCE_PROGRESS_KEY = 'belajarKata_sentence_progress_v1';
+const SENTENCE_DIFFICULTY_KEY = 'belajarKata_sentence_difficulty_v1';
+const SENTENCE_FILTER_LABELS = {
+  all: 'Semua Kata',
+  easy: 'Mudah',
+  medium: 'Sedang',
+  hard: 'Sulit',
+  unsorted: 'Belum Disortir'
+};
 
 let sentenceState = {
   level: null,
+  filter: 'all',
   words: [],
   index: 0,
   revealed: false
 };
 
+// ---- penyimpanan progres baca, per kombinasi level+kelompok kesulitan ----
+function sentenceProgressKey(level, filter){
+  return level + '::' + filter;
+}
 function loadSentenceProgress(){
   try{
     const raw = localStorage.getItem(SENTENCE_PROGRESS_KEY);
     return raw ? JSON.parse(raw) : {};
   }catch(e){ return {}; }
 }
-function getSentenceProgressIndex(level){
+function getSentenceProgressIndex(level, filter){
   const all = loadSentenceProgress();
-  return all[level] || 0;
+  return all[sentenceProgressKey(level, filter)] || 0;
 }
 function saveSentenceProgress(){
   try{
     const all = loadSentenceProgress();
-    all[sentenceState.level] = sentenceState.index;
+    all[sentenceProgressKey(sentenceState.level, sentenceState.filter)] = sentenceState.index;
     localStorage.setItem(SENTENCE_PROGRESS_KEY, JSON.stringify(all));
   }catch(e){/* abaikan */}
 }
-function markSentenceLevelCompleted(level){
+function markSentenceLevelCompleted(level, filter, total){
   try{
     const all = loadSentenceProgress();
-    all[level] = (WORD_DATA[level] || []).length; // tandai sudah tuntas semua
+    all[sentenceProgressKey(level, filter)] = total;
     localStorage.setItem(SENTENCE_PROGRESS_KEY, JSON.stringify(all));
   }catch(e){/* abaikan */}
 }
-function resetSentenceProgress(level){
+function resetSentenceProgress(level, filter){
   try{
     const all = loadSentenceProgress();
-    all[level] = 0;
+    all[sentenceProgressKey(level, filter)] = 0;
     localStorage.setItem(SENTENCE_PROGRESS_KEY, JSON.stringify(all));
   }catch(e){/* abaikan */}
+}
+
+// ---- penyimpanan tingkat kesulitan per kata (ditentukan manual oleh pengguna) ----
+function loadDifficultyMap(){
+  try{
+    const raw = localStorage.getItem(SENTENCE_DIFFICULTY_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function getWordDifficulty(level, en){
+  const map = loadDifficultyMap();
+  return (map[level] && map[level][en]) || null;
+}
+function setWordDifficulty(level, en, difficulty){
+  try{
+    const map = loadDifficultyMap();
+    if(!map[level]) map[level] = {};
+    map[level][en] = difficulty;
+    localStorage.setItem(SENTENCE_DIFFICULTY_KEY, JSON.stringify(map));
+  }catch(e){/* abaikan */}
+}
+function getDifficultyCounts(level){
+  const words = WORD_DATA[level] || [];
+  const map = loadDifficultyMap()[level] || {};
+  let easy = 0, medium = 0, hard = 0, unsorted = 0;
+  words.forEach(w => {
+    const d = map[w.en];
+    if(d === 'easy') easy++;
+    else if(d === 'medium') medium++;
+    else if(d === 'hard') hard++;
+    else unsorted++;
+  });
+  return { easy, medium, hard, unsorted, total: words.length };
+}
+function buildSentenceWordList(level, filter){
+  const words = WORD_DATA[level] || [];
+  if(filter === 'all') return words;
+  const map = loadDifficultyMap()[level] || {};
+  if(filter === 'unsorted') return words.filter(w => !map[w.en]);
+  return words.filter(w => map[w.en] === filter);
 }
 
 function refreshSentenceLevelSelectUI(){
@@ -2200,7 +2254,7 @@ function refreshSentenceLevelSelectUI(){
     const el = document.getElementById('sentenceProgress' + level);
     if(!el) return;
     const total = WORD_DATA[level].length;
-    const idx = getSentenceProgressIndex(level);
+    const idx = getSentenceProgressIndex(level, 'all');
     if(idx >= total){
       el.textContent = '✓ Semua kalimat selesai dibaca';
     }else if(idx > 0){
@@ -2260,8 +2314,14 @@ function renderSentenceCard(){
   document.getElementById('sentenceWordId').textContent = word.id;
   document.getElementById('sentenceAnswer').classList.add('hidden');
 
+  // tampilkan tanda kesulitan yang sudah pernah dipilih untuk kata ini (kalau ada)
+  const currentTag = getWordDifficulty(sentenceState.level, word.en);
+  document.getElementById('sentenceTagEasyBtn').classList.toggle('active', currentTag === 'easy');
+  document.getElementById('sentenceTagMediumBtn').classList.toggle('active', currentTag === 'medium');
+  document.getElementById('sentenceTagHardBtn').classList.toggle('active', currentTag === 'hard');
+
   document.getElementById('sentenceRevealBtn').classList.remove('hidden');
-  document.getElementById('sentenceNextBtn').classList.remove('show');
+  document.getElementById('sentenceTagRow').classList.add('hidden');
 
   saveSentenceProgress();
 }
@@ -2270,7 +2330,7 @@ document.getElementById('sentenceRevealBtn').addEventListener('click', () => {
   sentenceState.revealed = true;
   document.getElementById('sentenceAnswer').classList.remove('hidden');
   document.getElementById('sentenceRevealBtn').classList.add('hidden');
-  document.getElementById('sentenceNextBtn').classList.add('show');
+  document.getElementById('sentenceTagRow').classList.remove('hidden');
 });
 
 document.getElementById('sentenceSpeakBtn').addEventListener('click', (e) => {
@@ -2279,32 +2339,42 @@ document.getElementById('sentenceSpeakBtn').addEventListener('click', (e) => {
   if(sentence) speak(sentence, 'en-US');
 });
 
-document.getElementById('sentenceNextBtn').addEventListener('click', () => {
+function advanceSentence(){
   if(sentenceState.index >= sentenceState.words.length - 1){
     finishSentenceMode();
   }else{
     sentenceState.index++;
     renderSentenceCard();
   }
-});
+}
 
-function startSentenceMode(level){
+function tagCurrentWordAndAdvance(difficulty){
+  const word = sentenceState.words[sentenceState.index];
+  setWordDifficulty(sentenceState.level, word.en, difficulty);
+  advanceSentence();
+}
+
+document.getElementById('sentenceTagEasyBtn').addEventListener('click', () => tagCurrentWordAndAdvance('easy'));
+document.getElementById('sentenceTagMediumBtn').addEventListener('click', () => tagCurrentWordAndAdvance('medium'));
+document.getElementById('sentenceTagHardBtn').addEventListener('click', () => tagCurrentWordAndAdvance('hard'));
+
+function startSentenceMode(level, filter){
   stopReading();
   stopNovelReading();
 
-  const words = WORD_DATA[level] || [];
-  const rawIdx = getSentenceProgressIndex(level);
+  const words = buildSentenceWordList(level, filter);
+  const rawIdx = getSentenceProgressIndex(level, filter);
   const startIdx = rawIdx >= words.length ? 0 : rawIdx;
 
-  sentenceState = { level, words, index: startIdx, revealed: false };
+  sentenceState = { level, filter, words, index: startIdx, revealed: false };
 
-  document.getElementById('sentenceLevelSelect').classList.add('hidden');
+  document.getElementById('sentenceDifficultySelect').classList.add('hidden');
   document.getElementById('sentenceGame').classList.remove('hidden');
   showScreen('sentence');
 
   if(words.length === 0){
     document.getElementById('sentenceGame').classList.add('hidden');
-    document.getElementById('sentenceLevelSelect').classList.remove('hidden');
+    openSentenceDifficultySelect(level);
     return;
   }
   renderSentenceCard();
@@ -2313,23 +2383,67 @@ function startSentenceMode(level){
 function finishSentenceMode(){
   resultContext = 'sentence';
   window.speechSynthesis && window.speechSynthesis.cancel();
-  markSentenceLevelCompleted(sentenceState.level);
+  markSentenceLevelCompleted(sentenceState.level, sentenceState.filter, sentenceState.words.length);
+
+  const filterLabel = SENTENCE_FILTER_LABELS[sentenceState.filter] || '';
 
   document.getElementById('resultStats').classList.add('hidden');
   document.getElementById('resultEmoji').textContent = '📚';
-  document.getElementById('resultTitle').textContent = 'Semua Kalimat Selesai Dibaca!';
+  document.getElementById('resultTitle').textContent = 'Selesai Dibaca!';
   document.getElementById('resultSubtitle').textContent =
-    `Kamu sudah membaca semua ${sentenceState.words.length} kalimat di level ${sentenceState.level}, tidak ada yang terlewat. Mantap!`;
+    `Kamu sudah membaca semua ${sentenceState.words.length} kalimat (${filterLabel}) di level ${sentenceState.level}, tidak ada yang terlewat. Mantap!`;
   document.getElementById('retryBtn').textContent = '🔁 Ulangi dari Awal';
-  document.getElementById('backHomeBtn').textContent = '📝 Pilih Level Lain';
+  document.getElementById('backHomeBtn').textContent = '🔀 Pilih Kelompok Lain';
 
   showScreen('result');
 }
+
+// ---- layar pemilihan kelompok kesulitan (Mudah/Sedang/Sulit/Belum Disortir) ----
+function openSentenceDifficultySelect(level){
+  const counts = getDifficultyCounts(level);
+
+  const chip = document.getElementById('sentenceDiffLevelChip');
+  chip.textContent = level;
+  chip.className = 'level-chip ' + level.toLowerCase();
+
+  document.getElementById('diffCountAll').textContent = counts.total;
+  document.getElementById('diffCountEasy').textContent = counts.easy;
+  document.getElementById('diffCountMedium').textContent = counts.medium;
+  document.getElementById('diffCountHard').textContent = counts.hard;
+  document.getElementById('diffCountUnsorted').textContent = counts.unsorted;
+
+  document.querySelectorAll('.sentence-diff-btn').forEach(btn => {
+    const filter = btn.dataset.filter;
+    const count = filter === 'all' ? counts.total : counts[filter];
+    btn.classList.toggle('disabled', count === 0);
+  });
+
+  document.getElementById('sentenceDifficultySelect').dataset.level = level;
+  document.getElementById('sentenceGame').classList.add('hidden');
+  document.getElementById('sentenceLevelSelect').classList.add('hidden');
+  document.getElementById('sentenceDifficultySelect').classList.remove('hidden');
+  showScreen('sentence');
+}
+
+document.querySelectorAll('.sentence-diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if(btn.classList.contains('disabled')) return;
+    const level = document.getElementById('sentenceDifficultySelect').dataset.level;
+    startSentenceMode(level, btn.dataset.filter);
+  });
+});
+
+document.getElementById('sentenceDiffBackBtn').addEventListener('click', () => {
+  document.getElementById('sentenceDifficultySelect').classList.add('hidden');
+  document.getElementById('sentenceLevelSelect').classList.remove('hidden');
+  refreshSentenceLevelSelectUI();
+});
 
 function openSentenceScreen(){
   stopReading();
   stopNovelReading();
   document.getElementById('sentenceGame').classList.add('hidden');
+  document.getElementById('sentenceDifficultySelect').classList.add('hidden');
   document.getElementById('sentenceLevelSelect').classList.remove('hidden');
   refreshSentenceLevelSelectUI();
   showScreen('sentence');
@@ -2341,7 +2455,7 @@ document.getElementById('sentenceBackToHomeBtn').addEventListener('click', () =>
 });
 
 document.querySelectorAll('#sentenceLevelSelect .sentence-level-card').forEach(card => {
-  card.addEventListener('click', () => startSentenceMode(card.dataset.slevel));
+  card.addEventListener('click', () => openSentenceDifficultySelect(card.dataset.slevel));
   card.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' || e.key === ' '){
       e.preventDefault();
