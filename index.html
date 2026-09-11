@@ -956,41 +956,58 @@
   html[data-theme="comfort"] .sentence-text mark{color:var(--gold);}
   .speak-btn.small.hidden{display:none;}
 
-  /* ---- dua tombol utama: Lihat Kalimat & Lanjut, selalu tersedia bersamaan ---- */
-  .sentence-action-row{
+  /* ---- MODE BELAJAR PER LEVEL: tombol lihat arti ---- */
+  .reveal-btn{
     flex-shrink:0;
-    display:flex;
-    gap:10px;
+    width:100%;
     margin-top: clamp(8px,1.6vh,14px);
-  }
-  .sentence-view-btn{
-    flex:1;
-    border:2px solid var(--border-soft);
-    background:var(--card);
-    color:var(--ink);
-    border-radius:14px;
-    padding: clamp(10px, 1.8vh, 14px) 8px;
-    font-family:inherit;
-    font-weight:700;
-    font-size: clamp(12px, 1.9vh, 14px);
-    cursor:pointer;
-  }
-  .sentence-view-btn:active{transform:scale(0.97);}
-  .sentence-view-btn.hidden{display:none;}
-  .sentence-go-next-btn{
-    flex:1.3;
+    padding: clamp(10px, 1.8vh, 14px);
     border:none;
     border-radius:14px;
-    padding: clamp(10px, 1.8vh, 14px) 8px;
     background:linear-gradient(135deg,var(--a2),var(--a2-deep));
     color:#fff;
     font-weight:700;
-    font-family:inherit;
     font-size: clamp(12.5px, 2vh, 15px);
+    font-family:inherit;
     cursor:pointer;
     box-shadow:0 6px 14px rgba(77,154,131,0.3);
   }
-  .sentence-go-next-btn:active{transform:scale(0.98);}
+  .reveal-btn:active{transform:scale(0.98);}
+  .reveal-btn.hidden{display:none;}
+
+  /* ---- MODE SORTIR: tiga tombol besar, satu-satunya kontrol di halaman ini ---- */
+  .sentence-sort-row{
+    flex-shrink:0;
+    display:flex;
+    gap:8px;
+    margin-top: clamp(8px,1.6vh,14px);
+  }
+  .sentence-sort-row.hidden{display:none;}
+  .sentence-tag-btn{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    border:2px solid var(--border-soft);
+    background:var(--card);
+    border-radius:14px;
+    padding: clamp(11px,2vh,15px) 4px;
+    font-size: clamp(20px,3vh,24px);
+    cursor:pointer;
+    font-family:inherit;
+    box-shadow:var(--shadow);
+  }
+  .sentence-tag-btn span{font-size: clamp(11px,1.6vh,12.5px); font-weight:700; color:var(--ink-soft);}
+  .sentence-tag-btn:active{transform:scale(0.95);}
+  .sentence-tag-btn.tag-easy:active, .sentence-tag-btn.tag-easy:hover{border-color:var(--good);}
+  .sentence-tag-btn.tag-medium:active, .sentence-tag-btn.tag-medium:hover{border-color:var(--remedial);}
+  .sentence-tag-btn.tag-hard:active, .sentence-tag-btn.tag-hard:hover{border-color:var(--bad);}
+
+  /* ---- pastikan tombol Lanjut di Latihan Kalimat dikontrol lewat .hidden saja
+         (lepas dari sistem show/hidden bawaan class .next-btn di layar lain) ---- */
+  #sentenceNextBtn{display:block;}
+  #sentenceNextBtn.hidden{display:none;}
 
   /* ---- pemilihan kelompok kesulitan (mudah/sedang/sulit) ---- */
   .sentence-diff-header{
@@ -1810,29 +1827,35 @@
 
       <div class="flashcard-wrap">
         <div class="flashcard sentence-flashcard" id="sentenceCard">
-          <div class="sentence-tag-row-top">
-            <button class="sentence-tag-chip tag-easy" id="sentenceTagEasyBtn" title="Tandai Mudah">😊</button>
-            <button class="sentence-tag-chip tag-medium" id="sentenceTagMediumBtn" title="Tandai Sedang">😐</button>
-            <button class="sentence-tag-chip tag-hard" id="sentenceTagHardBtn" title="Tandai Sulit">😰</button>
+          <div class="sentence-tag-row-top hidden" id="sentenceTopTagRow">
+            <button class="sentence-tag-chip tag-easy" id="sentenceChipEasy" title="Tandai Mudah">😊</button>
+            <button class="sentence-tag-chip tag-medium" id="sentenceChipMedium" title="Tandai Sedang">😐</button>
+            <button class="sentence-tag-chip tag-hard" id="sentenceChipHard" title="Tandai Sulit">😰</button>
           </div>
 
-          <div class="flash-label">Kata &amp; Artinya</div>
-          <div class="sentence-word-main">
+          <div class="flash-label" id="sentenceFlashLabel">Baca &amp; pahami kalimatnya</div>
+          <div class="sentence-text" id="sentenceText"></div>
+          <button class="speak-btn small" id="sentenceSpeakBtn" title="Dengarkan kalimat">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06c1.48-.74 2.5-2.26 2.5-4.03zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          </button>
+
+          <div class="sentence-word-main hidden" id="sentenceWordMain">
             <b id="sentenceWordEn">word</b>
             <span id="sentenceWordId">arti</span>
           </div>
-
-          <div class="sentence-text hidden" id="sentenceText"></div>
-          <button class="speak-btn small hidden" id="sentenceSpeakBtn" title="Dengarkan kalimat">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06c1.48-.74 2.5-2.26 2.5-4.03zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-          </button>
         </div>
       </div>
 
-      <div class="sentence-action-row">
-        <button class="sentence-view-btn" id="sentenceViewBtn">📄 Lihat Kalimat</button>
-        <button class="sentence-go-next-btn" id="sentenceNextBtn">Lanjut →</button>
+      <!-- MODE SORTIR (Belum Disortir): tanpa tombol lain, tap kesulitan = simpan & langsung lanjut -->
+      <div class="sentence-sort-row hidden" id="sentenceSortRow">
+        <button class="sentence-tag-btn tag-easy" id="sentenceSortEasy">😊<span>Mudah</span></button>
+        <button class="sentence-tag-btn tag-medium" id="sentenceSortMedium">😐<span>Sedang</span></button>
+        <button class="sentence-tag-btn tag-hard" id="sentenceSortHard">😰<span>Sulit</span></button>
       </div>
+
+      <!-- MODE BELAJAR PER LEVEL: kalimat dulu, lihat arti, baru lanjut -->
+      <button class="reveal-btn" id="sentenceRevealBtn">👁️ Lihat Arti</button>
+      <button class="next-btn hidden" id="sentenceNextBtn">Lanjut →</button>
     </div>
   </section>
 

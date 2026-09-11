@@ -2283,12 +2283,16 @@ function highlightWordInSentence(sentence, en){
   return escapedSentence.replace(re, '<mark>$1</mark>');
 }
 
+function isSentenceSortMode(){
+  return sentenceState.filter === 'unsorted';
+}
+
 function updateSentenceTagChips(){
   const word = sentenceState.words[sentenceState.index];
   const currentTag = getWordDifficulty(sentenceState.level, word.en);
-  document.getElementById('sentenceTagEasyBtn').classList.toggle('active', currentTag === 'easy');
-  document.getElementById('sentenceTagMediumBtn').classList.toggle('active', currentTag === 'medium');
-  document.getElementById('sentenceTagHardBtn').classList.toggle('active', currentTag === 'hard');
+  document.getElementById('sentenceChipEasy').classList.toggle('active', currentTag === 'easy');
+  document.getElementById('sentenceChipMedium').classList.toggle('active', currentTag === 'medium');
+  document.getElementById('sentenceChipHard').classList.toggle('active', currentTag === 'hard');
 }
 
 function renderSentenceCard(){
@@ -2316,25 +2320,40 @@ function renderSentenceCard(){
   document.getElementById('sentenceProgressText').textContent =
     `${sentenceState.index + 1}/${sentenceState.words.length}`;
 
-  // kata & artinya tampil langsung, tidak perlu tombol reveal lagi
+  document.getElementById('sentenceText').innerHTML = highlightWordInSentence(sentence, word.en);
+  document.getElementById('sentenceCard').dataset.sentence = sentence;
   document.getElementById('sentenceWordEn').textContent = cleanWordForDisplay(word.en);
   document.getElementById('sentenceWordId').textContent = word.id;
 
-  // kalimat contoh disembunyikan dulu, baru tampil kalau tombol "Lihat Kalimat" ditekan
-  document.getElementById('sentenceText').innerHTML = highlightWordInSentence(sentence, word.en);
-  document.getElementById('sentenceCard').dataset.sentence = sentence;
-  document.getElementById('sentenceText').classList.add('hidden');
-  document.getElementById('sentenceSpeakBtn').classList.add('hidden');
-  document.getElementById('sentenceViewBtn').classList.remove('hidden');
+  if(isSentenceSortMode()){
+    // MODE SORTIR: kalimat + arti tampil sekaligus, tanpa tombol lain selain
+    // 3 tombol besar kesulitan — tap salah satu langsung simpan & lanjut.
+    document.getElementById('sentenceFlashLabel').textContent = 'Kalimat & Artinya';
+    document.getElementById('sentenceWordMain').classList.remove('hidden');
+    document.getElementById('sentenceTopTagRow').classList.add('hidden');
+    document.getElementById('sentenceRevealBtn').classList.add('hidden');
+    document.getElementById('sentenceNextBtn').classList.add('hidden');
+    document.getElementById('sentenceSortRow').classList.remove('hidden');
+  }else{
+    // MODE BELAJAR PER LEVEL: hanya kalimat dulu, arti disembunyikan sampai
+    // tombol "Lihat Arti" ditekan. Tombol tandai kesulitan tetap ada kompak
+    // di atas kartu sejak kartu pertama kali muncul (opsional, tidak memaksa).
+    document.getElementById('sentenceFlashLabel').textContent = 'Baca & pahami kalimatnya';
+    document.getElementById('sentenceWordMain').classList.add('hidden');
+    document.getElementById('sentenceTopTagRow').classList.remove('hidden');
+    document.getElementById('sentenceSortRow').classList.add('hidden');
+    document.getElementById('sentenceRevealBtn').classList.remove('hidden');
+    document.getElementById('sentenceNextBtn').classList.add('hidden');
+    updateSentenceTagChips();
+  }
 
-  updateSentenceTagChips();
   saveSentenceProgress();
 }
 
-document.getElementById('sentenceViewBtn').addEventListener('click', () => {
-  document.getElementById('sentenceText').classList.remove('hidden');
-  document.getElementById('sentenceSpeakBtn').classList.remove('hidden');
-  document.getElementById('sentenceViewBtn').classList.add('hidden');
+document.getElementById('sentenceRevealBtn').addEventListener('click', () => {
+  document.getElementById('sentenceWordMain').classList.remove('hidden');
+  document.getElementById('sentenceRevealBtn').classList.add('hidden');
+  document.getElementById('sentenceNextBtn').classList.remove('hidden');
 });
 
 document.getElementById('sentenceSpeakBtn').addEventListener('click', (e) => {
@@ -2353,17 +2372,28 @@ function advanceSentence(){
 }
 document.getElementById('sentenceNextBtn').addEventListener('click', advanceSentence);
 
-// Menandai kesulitan TIDAK otomatis pindah kartu — supaya tidak mengganggu proses.
-// Tap tombol yang sama lagi untuk membatalkan tanda (kembali jadi belum disortir).
+// MODE BELAJAR PER LEVEL — tombol tandai kompak di atas: menandai TIDAK otomatis
+// pindah kartu, supaya tidak mengganggu proses. Tap tombol yang sama lagi untuk
+// membatalkan tanda (kembali jadi belum disortir).
 function toggleWordDifficulty(difficulty){
   const word = sentenceState.words[sentenceState.index];
   const current = getWordDifficulty(sentenceState.level, word.en);
   setWordDifficulty(sentenceState.level, word.en, current === difficulty ? null : difficulty);
   updateSentenceTagChips();
 }
-document.getElementById('sentenceTagEasyBtn').addEventListener('click', () => toggleWordDifficulty('easy'));
-document.getElementById('sentenceTagMediumBtn').addEventListener('click', () => toggleWordDifficulty('medium'));
-document.getElementById('sentenceTagHardBtn').addEventListener('click', () => toggleWordDifficulty('hard'));
+document.getElementById('sentenceChipEasy').addEventListener('click', () => toggleWordDifficulty('easy'));
+document.getElementById('sentenceChipMedium').addEventListener('click', () => toggleWordDifficulty('medium'));
+document.getElementById('sentenceChipHard').addEventListener('click', () => toggleWordDifficulty('hard'));
+
+// MODE SORTIR — satu-satunya kontrol di halaman ini: tap kesulitan = simpan & langsung lanjut.
+function tagAndAdvanceSentence(difficulty){
+  const word = sentenceState.words[sentenceState.index];
+  setWordDifficulty(sentenceState.level, word.en, difficulty);
+  advanceSentence();
+}
+document.getElementById('sentenceSortEasy').addEventListener('click', () => tagAndAdvanceSentence('easy'));
+document.getElementById('sentenceSortMedium').addEventListener('click', () => tagAndAdvanceSentence('medium'));
+document.getElementById('sentenceSortHard').addEventListener('click', () => tagAndAdvanceSentence('hard'));
 
 function startSentenceMode(level, filter){
   stopReading();
