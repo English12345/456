@@ -2573,19 +2573,24 @@ function renderTensesQuestion(){
   document.getElementById('tensesSentence').innerHTML =
     escapeHtml(q.sentence).replace('___', '<span class="blank">_____</span>');
 
-  const input = document.getElementById('tensesInput');
-  input.value = '';
-  input.disabled = false;
-  input.classList.remove('correct', 'wrong');
+  // pilihan ganda — struktur & gaya sama dengan kuis kosakata biar konsisten
+  const letters = ['A', 'B', 'C', 'D'];
+  const listEl = document.getElementById('tensesOptions');
+  listEl.innerHTML = q.options.map((opt, i) =>
+    `<button class="option" data-opt="${i}">
+       <span class="letter">${letters[i]}</span>
+       <span class="opt-text">${escapeHtml(opt)}</span>
+     </button>`
+  ).join('');
+  listEl.querySelectorAll('.option').forEach((el, i) => {
+    el.addEventListener('click', () => selectTensesOption(i));
+  });
 
   document.getElementById('tensesFeedback').className = 'feedback-banner';
   document.getElementById('tensesFeedback').textContent = '';
-  document.getElementById('tensesCheckBtn').classList.remove('hidden');
-  document.getElementById('tensesGiveUpBtn').classList.remove('hidden');
   document.getElementById('tensesNextBtn').classList.remove('show');
 
   updateTensesScore();
-  setTimeout(() => { try{ input.focus(); }catch(e){} }, 50);
 }
 
 function updateTensesScore(){
@@ -2593,22 +2598,20 @@ function updateTensesScore(){
     `Benar <b style="color:var(--good)">${tensesState.good}</b> · Salah <b style="color:var(--bad)">${tensesState.bad}</b>`;
 }
 
-function checkTensesAnswer(forceEmpty){
+function selectTensesOption(i){
   if(tensesState.answered) return;
   tensesState.answered = true;
 
   const q = tensesState.pool[tensesState.index];
-  const input = document.getElementById('tensesInput');
-  const typed = forceEmpty ? '' : input.value;
-  if(forceEmpty) input.value = '';
+  const chosen = q.options[i];
+  const correct = chosen === q.correct;
+  const correctIdx = q.options.indexOf(q.correct);
 
-  const typedNorm = normalizeAnswer(typed);
-  // normalizeAnswer membuang tanda baca, jadi "don't" dan "dont" sama-sama diterima
-  const correct = typedNorm.length > 0 &&
-    q.answers.some(a => normalizeAnswer(a) === typedNorm);
-
-  input.disabled = true;
-  input.classList.add(correct ? 'correct' : 'wrong');
+  document.querySelectorAll('#tensesOptions .option').forEach((el, idx) => {
+    el.classList.add('disabled');
+    if(idx === correctIdx) el.classList.add('correct');
+    if(idx === i && !correct) el.classList.add('wrong');
+  });
 
   const feedback = document.getElementById('tensesFeedback');
   if(correct){
@@ -2618,27 +2621,12 @@ function checkTensesAnswer(forceEmpty){
   }else{
     tensesState.bad++;
     feedback.className = 'feedback-banner show bad';
-    feedback.textContent = `❌ Jawaban benar: ${q.answers.join('  /  ')}`;
+    feedback.textContent = `❌ Jawaban benar: ${q.correct}`;
   }
 
   updateTensesScore();
-  document.getElementById('tensesCheckBtn').classList.add('hidden');
-  document.getElementById('tensesGiveUpBtn').classList.add('hidden');
   document.getElementById('tensesNextBtn').classList.add('show');
 }
-
-document.getElementById('tensesCheckBtn').addEventListener('click', () => checkTensesAnswer(false));
-document.getElementById('tensesGiveUpBtn').addEventListener('click', () => checkTensesAnswer(true));
-
-document.getElementById('tensesInput').addEventListener('keydown', (e) => {
-  if(e.key !== 'Enter') return;
-  e.preventDefault();
-  if(!tensesState.answered){
-    checkTensesAnswer(false);
-  }else{
-    document.getElementById('tensesNextBtn').click();
-  }
-});
 
 document.getElementById('tensesNextBtn').addEventListener('click', () => {
   if(tensesState.index >= tensesState.pool.length - 1){

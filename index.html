@@ -1168,7 +1168,17 @@
   }
   html[data-theme="comfort"] .tenses-sentence .blank{color:var(--b2);}
 
-  #tensesInput{margin-top: clamp(8px,1.6vh,14px);}
+  .tenses-options{
+    flex-shrink:0;
+    margin-top: clamp(8px,1.6vh,14px);
+    flex:0 0 auto;
+    gap:8px;
+  }
+  .tenses-options .option{
+    flex:0 0 auto;
+    min-height:0;
+  }
+  .tenses-question-card{flex:1 1 auto;}
 
   /* ---------- NOVEL LIBRARY & IMMERSIVE READER (buku digital coklat hangat, ramah mata) ---------- */
   :root{
@@ -2035,17 +2045,10 @@
         <div class="tenses-sentence" id="tensesSentence"></div>
       </div>
 
-      <input type="text" class="remedial-input" id="tensesInput"
-        placeholder="Ketik jawabannya…" autocomplete="off" autocapitalize="off"
-        autocorrect="off" spellcheck="false" />
+      <div class="options tenses-options" id="tensesOptions"></div>
 
       <div class="feedback-banner" id="tensesFeedback"></div>
-
-      <div class="remedial-btn-row">
-        <button class="check-btn" id="tensesCheckBtn">✓ Cek Jawaban</button>
-        <button class="giveup-btn" id="tensesGiveUpBtn">Tidak tahu, lewati</button>
-        <button class="next-btn" id="tensesNextBtn">Lanjut →</button>
-      </div>
+      <button class="next-btn" id="tensesNextBtn">Lanjut →</button>
     </div>
   </section>
 
