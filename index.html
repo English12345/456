@@ -226,6 +226,10 @@
     background:linear-gradient(135deg,var(--a2),var(--a2-deep));
     box-shadow:0 6px 16px rgba(77,154,131,0.3);
   }
+  .tenses-entry-btn{
+    background:linear-gradient(135deg,var(--b2),var(--b2-deep));
+    box-shadow:0 6px 16px rgba(143,104,173,0.3);
+  }
   .remedial-btn.empty{
     background:var(--surface-soft);
     color:var(--ink-soft);
@@ -1064,6 +1068,108 @@
     margin-top: clamp(10px,1.8vh,16px);
   }
 
+  /* ---------- BELAJAR TENSES ---------- */
+  .tenses-aspect-list{
+    flex-shrink:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top: clamp(6px,1.2vh,10px);
+  }
+  .tenses-aspect-btn{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    width:100%;
+    border:none;
+    border-radius:16px;
+    padding: clamp(12px,2vh,16px);
+    background:var(--card);
+    box-shadow:var(--shadow);
+    cursor:pointer;
+    font-family:inherit;
+    text-align:left;
+  }
+  .tenses-aspect-btn:active{transform:scale(0.98);}
+  .tenses-aspect-btn .ta-icon{font-size: clamp(20px,3vh,25px); flex-shrink:0;}
+  .tenses-aspect-btn .ta-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .tenses-aspect-btn .ta-name{font-weight:700; font-size: clamp(13px,2vh,15px); color:var(--ink);}
+  .tenses-aspect-btn .ta-desc{
+    font-size: clamp(10px,1.5vh,11.5px);
+    color:var(--ink-soft);
+    font-style:italic;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .tenses-aspect-btn .ta-count{
+    flex-shrink:0;
+    font-size: clamp(10.5px,1.6vh,12px);
+    font-weight:700;
+    color:var(--b2-deep);
+    background:rgba(143,104,173,0.14);
+    padding:4px 10px;
+    border-radius:100px;
+  }
+
+  .tenses-game{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .level-chip.tenses-chip{background:var(--b2-deep); width:auto; padding:0 12px; border-radius:100px;}
+  .tenses-meta-row{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: clamp(8px,1.4vh,12px);
+  }
+  .tenses-form-badge{
+    font-size: clamp(10.5px,1.6vh,12px);
+    font-weight:700;
+    color:var(--ink-soft);
+    background:var(--surface-soft);
+    padding:4px 11px;
+    border-radius:100px;
+  }
+  .tenses-progress{font-size: clamp(10.5px,1.6vh,12px); color:var(--ink-soft); font-weight:700;}
+
+  .tenses-question-card{
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap: clamp(8px,1.6vh,14px);
+    background:var(--card);
+    border-radius:20px;
+    box-shadow:var(--shadow);
+    padding: clamp(14px,2.6vh,24px) clamp(12px,3vw,20px);
+    text-align:center;
+  }
+  .tenses-hint{
+    font-size: clamp(10.5px,1.6vh,12px);
+    color:var(--ink-soft);
+    background:var(--surface-soft);
+    padding:5px 12px;
+    border-radius:100px;
+    font-weight:600;
+  }
+  .tenses-sentence{
+    font-size: clamp(16px,3vh,21px);
+    font-weight:700;
+    line-height:1.55;
+    color:var(--ink);
+  }
+  .tenses-sentence .blank{
+    color:var(--b2-deep);
+    letter-spacing:1px;
+  }
+  html[data-theme="comfort"] .tenses-sentence .blank{color:var(--b2);}
+
+  #tensesInput{margin-top: clamp(8px,1.6vh,14px);}
+
   /* ---------- NOVEL LIBRARY & IMMERSIVE READER (buku digital coklat hangat, ramah mata) ---------- */
   :root{
     --book-page-bg:#e7d4ac;
@@ -1504,6 +1610,11 @@
       <span class="badge" id="sentenceBadge">0/3.308</span>
     </button>
 
+    <button class="remedial-btn tenses-entry-btn" id="tensesBtn">
+      <span>⏳ Belajar Tenses</span>
+      <span class="badge" id="tensesBadge">2.000 soal</span>
+    </button>
+
     <div class="level-grid">
       <div class="level-card a1" data-level="A1" tabindex="0" role="button">
         <div class="blob"></div>
@@ -1859,6 +1970,85 @@
     </div>
   </section>
 
+  <!-- ============ BELAJAR TENSES (isian diketik, 500 soal per aspek) ============ -->
+  <section id="tensesScreen" class="screen hidden">
+    <div class="novel-header">
+      <button class="icon-btn" id="tensesBackBtn" title="Kembali">←</button>
+      <div class="novel-title-wrap">
+        <div class="novel-title">⏳ Belajar Tenses</div>
+        <div class="novel-page-info">Isi bagian rumpang — positif, negatif &amp; tanya teracak</div>
+      </div>
+      <span class="reader-overlay-spacer"></span>
+    </div>
+
+    <div id="tensesAspectSelect">
+      <p class="match-intro">Pilih kelompok tense. Setiap kelompok berisi 500 soal acak yang mencakup Present, Past, dan Future.</p>
+      <div class="tenses-aspect-list">
+        <button class="tenses-aspect-btn" data-aspect="simple">
+          <span class="ta-icon">1️⃣</span>
+          <span class="ta-info">
+            <span class="ta-name">Simple Tense</span>
+            <span class="ta-desc">go / went / will go</span>
+          </span>
+          <span class="ta-count" id="taCountSimple">500</span>
+        </button>
+        <button class="tenses-aspect-btn" data-aspect="continuous">
+          <span class="ta-icon">2️⃣</span>
+          <span class="ta-info">
+            <span class="ta-name">Continuous Tense</span>
+            <span class="ta-desc">is going / was going / will be going</span>
+          </span>
+          <span class="ta-count" id="taCountContinuous">500</span>
+        </button>
+        <button class="tenses-aspect-btn" data-aspect="perfect">
+          <span class="ta-icon">3️⃣</span>
+          <span class="ta-info">
+            <span class="ta-name">Perfect Tense</span>
+            <span class="ta-desc">has gone / had gone / will have gone</span>
+          </span>
+          <span class="ta-count" id="taCountPerfect">500</span>
+        </button>
+        <button class="tenses-aspect-btn" data-aspect="perfectcont">
+          <span class="ta-icon">4️⃣</span>
+          <span class="ta-info">
+            <span class="ta-name">Perfect Continuous</span>
+            <span class="ta-desc">has been going / had been going</span>
+          </span>
+          <span class="ta-count" id="taCountPerfectcont">500</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="tensesGame" class="tenses-game hidden">
+      <div class="match-score-row">
+        <span class="level-chip tenses-chip" id="tensesTenseChip">Present Simple</span>
+        <span class="match-score-text" id="tensesScoreText">Benar 0 · Salah 0</span>
+      </div>
+
+      <div class="tenses-meta-row">
+        <span class="tenses-form-badge" id="tensesFormBadge">Positif (+)</span>
+        <span class="tenses-progress" id="tensesProgressText">1/500</span>
+      </div>
+
+      <div class="tenses-question-card">
+        <div class="tenses-hint" id="tensesHint">Pakai kata kerja: go</div>
+        <div class="tenses-sentence" id="tensesSentence"></div>
+      </div>
+
+      <input type="text" class="remedial-input" id="tensesInput"
+        placeholder="Ketik jawabannya…" autocomplete="off" autocapitalize="off"
+        autocorrect="off" spellcheck="false" />
+
+      <div class="feedback-banner" id="tensesFeedback"></div>
+
+      <div class="remedial-btn-row">
+        <button class="check-btn" id="tensesCheckBtn">✓ Cek Jawaban</button>
+        <button class="giveup-btn" id="tensesGiveUpBtn">Tidak tahu, lewati</button>
+        <button class="next-btn" id="tensesNextBtn">Lanjut →</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ NOVEL LIBRARY (daftar PDF novel yang sudah diunggah) ============ -->
   <section id="novelScreen" class="screen hidden">
     <div class="novel-header">
@@ -1983,6 +2173,7 @@
 <script src="words_data.js"></script>
 <script src="example_sentences.js"></script>
 <script src="confusable_pairs.js"></script>
+<script src="tenses_data.js"></script>
 <script src="vendor/pdfjs/pdf.min.js"></script>
 <script>
   if(window.pdfjsLib){

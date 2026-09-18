@@ -251,6 +251,7 @@ const screens = {
   match: document.getElementById('matchScreen'),
   confusable: document.getElementById('confusableScreen'),
   sentence: document.getElementById('sentenceScreen'),
+  tenses: document.getElementById('tensesScreen'),
   novel: document.getElementById('novelScreen'),
   novelReader: document.getElementById('novelReaderScreen'),
   progress: document.getElementById('progressScreen'),
@@ -344,6 +345,10 @@ document.getElementById('backHomeBtn').addEventListener('click', () => {
     openSentenceDifficultySelect(sentenceState.level);
     return;
   }
+  if(resultContext === 'tenses'){
+    openTensesScreen();
+    return;
+  }
   showScreen('home');
 });
 
@@ -361,6 +366,10 @@ document.getElementById('retryBtn').addEventListener('click', () => {
     startSentenceMode(sentenceState.level, sentenceState.filter);
     return;
   }
+  if(resultContext === 'tenses'){
+    startTensesQuiz(tensesState.aspect);
+    return;
+  }
   // "Lanjut Belajar": kembali ke level yang sama kalau masih ada sisa, kalau tidak ke home
   if(state.level && buildMainPool(state.level).length > 0){
     startQuiz(state.level);
@@ -376,6 +385,12 @@ function refreshHomeUI(){
     const totalPairs = Object.values(CONFUSABLE_PAIRS).reduce((sum, arr) => sum + arr.length, 0);
     const badge = document.getElementById('confusableBadge');
     if(badge) badge.textContent = totalPairs + ' pasang';
+  }
+
+  if(typeof TENSES_DATA !== 'undefined'){
+    const totalSoal = Object.values(TENSES_DATA).reduce((sum, arr) => sum + arr.length, 0);
+    const tBadge = document.getElementById('tensesBadge');
+    if(tBadge) tBadge.textContent = totalSoal.toLocaleString('id-ID') + ' soal';
   }
 
   if(typeof getSentenceProgressIndex === 'function'){
@@ -2517,6 +2532,210 @@ document.querySelectorAll('#sentenceLevelSelect .sentence-level-card').forEach(c
       card.click();
     }
   });
+});
+
+// ---------- Belajar Tenses: isian diketik, 500 soal acak per kelompok aspek ----------
+// Tiap soal berupa kalimat dengan satu bagian rumpang (___). Pengguna mengetik jawabannya,
+// lalu dinilai otomatis. Jawaban bentuk kontraksi (don't, isn't, won't, ...) juga diterima,
+// dan penilaiannya toleran terhadap huruf besar/kecil serta spasi berlebih.
+const TENSES_QUIZ_SIZE = 20; // satu sesi = 20 soal, diambil acak dari 500 soal kelompok itu
+
+let tensesState = {
+  aspect: null,
+  pool: [],
+  index: 0,
+  good: 0,
+  bad: 0,
+  answered: false
+};
+
+function tensesAspectLabel(aspect){
+  return {
+    simple: 'Simple Tense',
+    continuous: 'Continuous Tense',
+    perfect: 'Perfect Tense',
+    perfectcont: 'Perfect Continuous Tense'
+  }[aspect] || aspect;
+}
+
+function renderTensesQuestion(){
+  tensesState.answered = false;
+  const q = tensesState.pool[tensesState.index];
+
+  const chip = document.getElementById('tensesTenseChip');
+  chip.textContent = q.tense;
+  document.getElementById('tensesFormBadge').textContent = q.form;
+  document.getElementById('tensesProgressText').textContent =
+    `${tensesState.index + 1}/${tensesState.pool.length}`;
+  document.getElementById('tensesHint').textContent = q.hint;
+
+  // tampilkan kalimat dengan bagian rumpang disorot supaya jelas mana yang diisi
+  document.getElementById('tensesSentence').innerHTML =
+    escapeHtml(q.sentence).replace('___', '<span class="blank">_____</span>');
+
+  const input = document.getElementById('tensesInput');
+  input.value = '';
+  input.disabled = false;
+  input.classList.remove('correct', 'wrong');
+
+  document.getElementById('tensesFeedback').className = 'feedback-banner';
+  document.getElementById('tensesFeedback').textContent = '';
+  document.getElementById('tensesCheckBtn').classList.remove('hidden');
+  document.getElementById('tensesGiveUpBtn').classList.remove('hidden');
+  document.getElementById('tensesNextBtn').classList.remove('show');
+
+  updateTensesScore();
+  setTimeout(() => { try{ input.focus(); }catch(e){} }, 50);
+}
+
+function updateTensesScore(){
+  document.getElementById('tensesScoreText').innerHTML =
+    `Benar <b style="color:var(--good)">${tensesState.good}</b> · Salah <b style="color:var(--bad)">${tensesState.bad}</b>`;
+}
+
+function checkTensesAnswer(forceEmpty){
+  if(tensesState.answered) return;
+  tensesState.answered = true;
+
+  const q = tensesState.pool[tensesState.index];
+  const input = document.getElementById('tensesInput');
+  const typed = forceEmpty ? '' : input.value;
+  if(forceEmpty) input.value = '';
+
+  const typedNorm = normalizeAnswer(typed);
+  // normalizeAnswer membuang tanda baca, jadi "don't" dan "dont" sama-sama diterima
+  const correct = typedNorm.length > 0 &&
+    q.answers.some(a => normalizeAnswer(a) === typedNorm);
+
+  input.disabled = true;
+  input.classList.add(correct ? 'correct' : 'wrong');
+
+  const feedback = document.getElementById('tensesFeedback');
+  if(correct){
+    tensesState.good++;
+    feedback.className = 'feedback-banner show good';
+    feedback.textContent = '✅ Benar! Mantap!';
+  }else{
+    tensesState.bad++;
+    feedback.className = 'feedback-banner show bad';
+    feedback.textContent = `❌ Jawaban benar: ${q.answers.join('  /  ')}`;
+  }
+
+  updateTensesScore();
+  document.getElementById('tensesCheckBtn').classList.add('hidden');
+  document.getElementById('tensesGiveUpBtn').classList.add('hidden');
+  document.getElementById('tensesNextBtn').classList.add('show');
+}
+
+document.getElementById('tensesCheckBtn').addEventListener('click', () => checkTensesAnswer(false));
+document.getElementById('tensesGiveUpBtn').addEventListener('click', () => checkTensesAnswer(true));
+
+document.getElementById('tensesInput').addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  if(!tensesState.answered){
+    checkTensesAnswer(false);
+  }else{
+    document.getElementById('tensesNextBtn').click();
+  }
+});
+
+document.getElementById('tensesNextBtn').addEventListener('click', () => {
+  if(tensesState.index >= tensesState.pool.length - 1){
+    finishTensesQuiz();
+  }else{
+    tensesState.index++;
+    renderTensesQuestion();
+  }
+});
+
+function startTensesQuiz(aspect){
+  stopReading();
+  stopNovelReading();
+
+  const all = (typeof TENSES_DATA !== 'undefined' && TENSES_DATA[aspect]) || [];
+  tensesState = {
+    aspect,
+    pool: shuffle(all).slice(0, TENSES_QUIZ_SIZE),
+    index: 0,
+    good: 0,
+    bad: 0,
+    answered: false
+  };
+
+  document.getElementById('tensesAspectSelect').classList.add('hidden');
+  document.getElementById('tensesGame').classList.remove('hidden');
+  showScreen('tenses');
+
+  if(tensesState.pool.length === 0){
+    openTensesScreen();
+    return;
+  }
+  renderTensesQuestion();
+}
+
+function finishTensesQuiz(){
+  resultContext = 'tenses';
+  window.speechSynthesis && window.speechSynthesis.cancel();
+
+  const total = tensesState.good + tensesState.bad;
+  const pct = total ? Math.round((tensesState.good / total) * 100) : 0;
+
+  document.getElementById('resultStats').classList.remove('hidden');
+  document.getElementById('resultGood').textContent = tensesState.good;
+  document.getElementById('resultBad').textContent = tensesState.bad;
+  document.getElementById('resultPct').textContent = pct + '%';
+
+  let emoji, title, subtitle;
+  if(pct === 100){
+    emoji = '🏆'; title = 'Sempurna!';
+    subtitle = `Semua ${total} soal ${tensesAspectLabel(tensesState.aspect)} benar!`;
+  }else if(pct >= 70){
+    emoji = '🎉'; title = 'Kerja Bagus!';
+    subtitle = `${tensesState.good} dari ${total} benar di ${tensesAspectLabel(tensesState.aspect)}.`;
+  }else{
+    emoji = '💪'; title = 'Terus Berlatih!';
+    subtitle = `${tensesState.good} dari ${total} benar. Coba lagi, soalnya selalu diacak baru.`;
+  }
+
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultSubtitle').textContent = subtitle;
+  document.getElementById('retryBtn').textContent = '🔁 Soal Baru';
+  document.getElementById('backHomeBtn').textContent = '⏳ Pilih Tense Lain';
+
+  showScreen('result');
+}
+
+function openTensesScreen(){
+  stopReading();
+  stopNovelReading();
+  if(typeof TENSES_DATA !== 'undefined'){
+    const map = { simple:'taCountSimple', continuous:'taCountContinuous', perfect:'taCountPerfect', perfectcont:'taCountPerfectcont' };
+    Object.keys(map).forEach(a => {
+      const el = document.getElementById(map[a]);
+      if(el) el.textContent = ((TENSES_DATA[a] || []).length).toLocaleString('id-ID') + ' soal';
+    });
+  }
+  document.getElementById('tensesGame').classList.add('hidden');
+  document.getElementById('tensesAspectSelect').classList.remove('hidden');
+  showScreen('tenses');
+}
+
+document.getElementById('tensesBtn').addEventListener('click', openTensesScreen);
+
+// Tombol kembali: mundur satu langkah (soal -> pilih tense -> beranda)
+document.getElementById('tensesBackBtn').addEventListener('click', () => {
+  const inGame = !document.getElementById('tensesGame').classList.contains('hidden');
+  if(inGame){
+    openTensesScreen();
+  }else{
+    showScreen('home');
+  }
+});
+
+document.querySelectorAll('.tenses-aspect-btn').forEach(btn => {
+  btn.addEventListener('click', () => startTensesQuiz(btn.dataset.aspect));
 });
 
 // ---------- init ----------
